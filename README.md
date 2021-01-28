@@ -1,1 +1,1 @@
-# vault-config
+# Vault configuration
