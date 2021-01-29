@@ -4,7 +4,7 @@ stty -echo
 start_time="$(date -u +%s.%N)"
 
 # Navigate to the Vault Base folder.
-cd "$HOME" || exit 1
+cd "$VAULT_INIT_HOME" || exit 1
 
 # Create new folder that would contain the cluster keys.
 mkdir keys
@@ -89,6 +89,6 @@ vault write auth/kubernetes/role/kube \
 echo "Done!"
 
 end_time="$(date -u +%s.%N)"
-elapsed="$(bc <<<"$end_time-$start_time")"
+elapsed="$(bc <<< "$end_time-$start_time")"
 
 echo "Finished successfully in $elapsed seconds."
