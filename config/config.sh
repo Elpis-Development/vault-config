@@ -1,5 +1,4 @@
 #!/bin/sh
-stty -echo
 
 start_time="$(date -u +%s.%N)"
 
@@ -20,8 +19,8 @@ vault operator init -key-shares=1 -key-threshold=1 -format=json > cluster-keys.j
 echo "Done!"
 
 # Get and store Vault's Root and Unseal tokens into variables.
-VAULT_UNSEAL_KEY=$(cat cluster-keys.json | jq -r ".unseal_keys_b64[]")
-VAULT_ROOT_TOKEN=$(cat cluster-keys.json | jq -r ".root_token")
+VAULT_UNSEAL_KEY=$(awk '/unseal_keys_b64/{getline; print}' cluster-keys.json | tr -d ' ' | tr -d '"')
+VAULT_ROOT_TOKEN=$(awk '/root_token/{print}' cluster-keys.json | tr -d ' ' | tr -d '"' | sed 's/.*://g')
 
 echo "Unsealing vault..."
 
@@ -43,15 +42,15 @@ echo "KV Engine was enabled."
 
 ## Policies
 
-cd "$VAULT_INIT_HOME/vault-config/acl" || exit 1
+cd "$VAULT_INIT_HOME/vault-config/acl/policies" || exit 1
 
 echo "Applying required policies..."
 
 # Iterate through all the policies inside the folder and apply them to Vault config.
-for filename in policies/*.hcl; do
+for filename in *.hcl; do
     [ -e "$filename" ] || continue
 
-    vault policy write "$filename" "$filename.hcl"
+    vault policy write "${filename%.*}" "$filename"
 done
 
 echo "Done!"
