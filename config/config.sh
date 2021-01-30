@@ -89,4 +89,4 @@ echo "Done!"
 
 end_time="$(date +'%s')"
 
-echo "Finished successfully in $($end_time - $start_time) seconds."
+echo "Finished successfully in $((end_time - start_time)) seconds."
