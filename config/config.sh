@@ -1,7 +1,5 @@
 #!/bin/sh
 
-start_time="$(date + '%s%N')"
-
 # Navigate to the Vault Base folder.
 cd "$VAULT_INIT_HOME" || exit 1
 
@@ -86,8 +84,3 @@ vault write auth/kubernetes/role/kube \
         ttl=24h
 
 echo "Done!"
-
-end_time="$(date + '%s%N')"
-elapsed=$((end_time - start_time))
-
-echo "Finished successfully in $elapsed seconds."
