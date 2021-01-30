@@ -19,8 +19,8 @@ vault operator init -key-shares=1 -key-threshold=1 -format=json > cluster-keys.j
 echo "Done!"
 
 # Get and store Vault's Root and Unseal tokens into variables.
-VAULT_UNSEAL_KEY=$(awk '/unseal_keys_b64/{getline; print}' cluster-keys.json | tr -d ' ' | tr -d '"')
-VAULT_ROOT_TOKEN=$(awk '/root_token/{print}' cluster-keys.json | tr -d ' ' | tr -d '"' | sed 's/.*://g')
+export VAULT_UNSEAL_KEY=$(awk '/unseal_keys_b64/{getline; print}' cluster-keys.json | tr -d ' ' | tr -d '"')
+export VAULT_ROOT_TOKEN=$(awk '/root_token/{print}' cluster-keys.json | tr -d ' ' | tr -d '"' | sed 's/.*://g')
 
 echo "Unsealing vault..."
 
