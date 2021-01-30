@@ -34,7 +34,7 @@ vault login "$VAULT_ROOT_TOKEN"
 echo "Success!"
 
 # Enable KV2 Secret Storage Engine.
-vault secrets enable -path=secret kv-v2
+vault secrets enable -path=kv kv-v2
 
 echo "KV Engine was enabled."
 
@@ -53,9 +53,17 @@ done
 
 echo "Done!"
 
-## User/Password Auth
+## GitHub Auth
 
-vault auth enable userpass
+echo "Enabling GitHub authentication..."
+
+vault auth enable github
+
+vault write auth/github/config organization=Elpis-Development
+
+vault write auth/github/map/teams/Alpha value=user
+
+echo "Done!"
 
 ## Kubernetes auth
 
