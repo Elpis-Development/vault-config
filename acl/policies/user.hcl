@@ -10,4 +10,3 @@ path "sys/tools/hash" {
 path "sys/tools/hash/*" {
   capabilities = ["update"]
 }
-
