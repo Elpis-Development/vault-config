@@ -2,13 +2,10 @@ FROM python:3.9
 
 ENV HOME="/init"
 
+RUN mkdir /init && mkdir /init/logs && chmod 777 /init && chmod 777 /init/logs \
+ && pip install slack_sdk async-hvac requests kubernetes flask
+
 ADD src /init/src
 ADD acl /init/acl
 
-COPY aliases.sh /etc/profile.d/
-
-RUN chmod +x /etc/profile.d/aliases.sh \
-    && mkdir /init \
-    && pip install slack_sdk async-hvac requests kubernetes
-
-CMD tail -f /dev/null
+CMD ["python",  "/init/src/run.py"]

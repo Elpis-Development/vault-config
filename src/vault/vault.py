@@ -67,7 +67,8 @@ class HealthProbe(object):
 
 class VaultClient(object):
     def __init__(self, full_verbose: bool = False):
-        self.__api = lambda: async_hvac.AsyncClient(url=os.environ['VAULT_ADDR'])
+        self.__api = None
+
         self.__slack_client = SlackClient(full_verbose)
 
         self.__probe = lambda initial_delay_seconds=5: HealthProbe(full_verbose=full_verbose,
@@ -81,15 +82,34 @@ class VaultClient(object):
 
         self.__root_token = None
 
-    async def enable_secrets(self) -> bool:
+    async def __aenter__(self):
         health_probe = self.__probe(1)
 
         if not await health_probe.run(
                 lambda: requests.get(f"{os.environ['VAULT_ADDR']}{os.environ['VAULT_PING_ADDR']}")) \
                 or health_probe.is_closed():
-            return False
+            return None
 
-        client = self.__api()
+        self.__api = async_hvac.AsyncClient(url=os.environ['VAULT_ADDR'])
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, tb):
+        if self.__api:
+            await self.__api.close()
+
+        if self.__root_token:
+            self.__root_token = None
+
+    async def kube_auth(self):
+        f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
+        jwt = f.read()
+
+        await self.__api.auth_kubernetes(role=os.environ['GITHUB_USER_POLICY'], jwt=jwt)
+
+        return True
+
+    async def enable_secrets(self) -> bool:
+        client = self.__api
         client.token = self.__root_token
 
         if await client.is_initialized() and not await client.is_sealed() and await client.is_authenticated():
@@ -101,18 +121,10 @@ class VaultClient(object):
 
                 self.__log.info(f'Enabled successfully!')
 
-        await client.close()
         return True
 
     async def apply_policies(self) -> bool:
-        health_probe = self.__probe(1)
-
-        if not await health_probe.run(
-                lambda: requests.get(f"{os.environ['VAULT_ADDR']}{os.environ['VAULT_PING_ADDR']}")) \
-                or health_probe.is_closed():
-            return False
-
-        client = self.__api()
+        client = self.__api
         client.token = self.__root_token
 
         if await client.is_initialized() and not await client.is_sealed() and await client.is_authenticated():
@@ -126,18 +138,10 @@ class VaultClient(object):
 
                     await client.set_policy(policy_name, policy)
 
-        await client.close()
         return True
 
     async def enable_auth(self) -> bool:
-        health_probe = self.__probe(1)
-
-        if not await health_probe.run(
-                lambda: requests.get(f"{os.environ['VAULT_ADDR']}{os.environ['VAULT_PING_ADDR']}")) \
-                or health_probe.is_closed():
-            return False
-
-        client = self.__api()
+        client = self.__api
         client.token = self.__root_token
 
         if await client.is_initialized() and not await client.is_sealed() and await client.is_authenticated():
@@ -161,30 +165,19 @@ class VaultClient(object):
                 await client.write('auth/kubernetes/config', None, token_reviewer_jwt=jwt,
                                    kubernetes_host=f"https://{os.environ['KUBERNETES_PORT_443_TCP_ADDR']}:443",
                                    kubernetes_ca_cert="@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
-                await client.write(f'auth/kubernetes/role/{os.environ["KUBE_POLICY"]}', '24h',
+                await client.write(f'auth/kubernetes/role/{os.environ["KUBE_POLICY"]}', wrap_ttl='24h',
                                    bound_service_account_names=f"{os.environ['VAULT_K8S_NAMESPACE']}-vault",
                                    bound_service_account_namespaces=os.environ['VAULT_K8S_NAMESPACE'],
                                    policies=os.environ["KUBE_POLICY"])
 
                 self.__log.info(f'Kubernetes enabled!')
 
-            await client.close()
-
             return True
-
-        await client.close()
 
         return False
 
     async def init_vault(self) -> bool:
-        health_probe = self.__probe()
-
-        if not await health_probe.run(
-                lambda: requests.get(f"{os.environ['VAULT_ADDR']}{os.environ['VAULT_PING_ADDR']}")) \
-                or health_probe.is_closed():
-            return False
-
-        client = self.__api()
+        client = self.__api
 
         if not await client.is_initialized():
             self.__log.info(f'Vault is not initialized. Initializing...')
@@ -212,12 +205,7 @@ class VaultClient(object):
                     await self.__slack_client.post_message(unseal_message)
         else:
             self.__log.info(f'Vault was already initialized.')
-            await client.close()
 
             return False
 
-        vault_is_ready = await client.is_initialized() and not await client.is_sealed()
-
-        await client.close()
-
-        return vault_is_ready
+        return await client.is_initialized() and not await client.is_sealed()
