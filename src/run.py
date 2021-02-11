@@ -1,11 +1,22 @@
-import asyncio
+import atexit
 import logging
 import os
+import threading
+import time
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask
+import flask
+from flask import Flask, request
 
+from web import SlackController
+from kube import KubernetesClient
 from vault import VaultClient
+
+os.environ['SLACK_BOT_TOKEN'] = "xoxb-1706877555252-1697647264629-J8xZHp779hJv3dTSEnyqgypT"
+os.environ['VAULT_K8S_NAMESPACE'] = "k8s-services"
+os.environ['HOME'] = "C:/Users/oleks/Documents/GitHub/vault-config"
+os.environ['SLACK_VERIFICATION_TOKEN'] = "b9CVTX9p7NBFs6AOaXLFQhzS"
+os.environ['EXTERNAL_PORT'] = "32200"
 
 log_formatter = logging.Formatter(fmt='%(asctime)s - %(name)s - %(message)s',
                                   datefmt='%d-%b-%y %H:%M:%S')
@@ -24,15 +35,42 @@ root_logger.addHandler(console_handler)
 
 app = Flask(__name__)
 
+vault = VaultClient(True)
+kube_client = KubernetesClient()
 
-async def init(full_verbose: bool = False):
-    async with VaultClient(full_verbose) as vault:
-        if await vault.init_vault() and await vault.enable_secrets() and await vault.apply_policies() \
-                and await vault.enable_auth():
-            print("Vault was initialized!")
 
+@app.route('/')
+def index():
+    return flask.render_template('index.html')
+
+
+# SLACK CONTROLLER
+@app.route(
+    rule=SlackController.SLACK_ACTION_RESOURCE.get_path,
+    methods=SlackController.SLACK_ACTION_RESOURCE.get_methods
+)
+def slack_action():
+    SlackController.slack_action(request=request, vault=vault)
+#
+
+
+def main():
+    if vault.init_vault():
+        kube_client.update_self_service()
+
+        while vault.is_sealed():
+            time.sleep(10)
+
+        if vault.enable_secrets() and vault.apply_policies() and vault.enable_auth():
+            print("Done!")
+
+
+atexit.register(vault.close_client)
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(init(True))
+    task = threading.Thread(target=main)
+    task.setDaemon(True)
 
-    app.run()
+    task.start()
+
+    app.run(host='0.0.0.0')
