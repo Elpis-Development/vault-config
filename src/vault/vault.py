@@ -9,6 +9,7 @@ import time
 import hvac
 import requests
 
+from exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException
 from slack import SlackClient, VaultUnsealKeysMessage
 from slack.messages import VaultUnsealKeysMessageProcessor, VaultUnsealKeyPrivateMessage
 from util import VaultProperties, GithubProperties, SlackProperties
@@ -78,34 +79,31 @@ class HealthProbe(object):
 
             self.__log.error(f'Health probe failed for current request. Please, double-check if source is alive.')
 
-            raise Exception
+            raise HealthProbeFailedException
 
         return successes == self.__success_threshold and not failures == self.__failure_threshold
 
 
 class VaultClient(object):
-    def __init__(self, full_verbose: bool = False, key_shares: int = 2, key_threshold: int = 2):
-        self.__probe = lambda initial_delay_seconds=5: HealthProbe(full_verbose=full_verbose,
-                                                                   initial_delay_seconds=initial_delay_seconds)
-
-        # if not self.vault_ready():
-        #     raise Exception
-
+    def __init__(self):
         self.__vault_properties = VaultProperties()
         self.__github_properties = GithubProperties()
         self.__slack_properties = SlackProperties()
 
-        self.__api = hvac.Client(url=self.__vault_properties.get_vault_address())
-        self.__slack_client = SlackClient(full_verbose)
+        self.__probe = lambda initial_delay_seconds=5: HealthProbe(full_verbose=self.__vault_properties.vault_ping_log_full_verbose,
+                                                                   initial_delay_seconds=initial_delay_seconds)
+
+        if not self.vault_ready():
+            raise VaultNotReadyException
+
+        self.__api = hvac.Client(url=self.__vault_properties.vault_address)
+        self.__slack_client = SlackClient()
 
         self.__log = logging.getLogger(VaultClient.__class__.__name__)
-        self.__log.setLevel(logging.INFO if full_verbose else logging.ERROR)
+        self.__log.setLevel(logging.INFO if self.__vault_properties.vault_client_log_full_verbose else logging.ERROR)
 
-        if key_shares > 13 or key_threshold > 13:
-            raise Exception
-
-        self.__key_shares = key_shares
-        self.__key_threshold = key_threshold
+        if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
+            raise ValidationException("Vault keys cannot be split for more than 13 parts")
 
         self.__root_token = None
 
@@ -113,12 +111,12 @@ class VaultClient(object):
 
     @synchronized
     def vault_ready(self):
-        health_probe = self.__probe(1)
+        health_probe = self.__probe(self.__vault_properties.vault_ping_initial_delay_seconds)
 
         if not health_probe.run(
-                lambda: requests.get(self.__vault_properties.get_vault_ping_address())) \
+                lambda: requests.get(self.__vault_properties.vault_ping_address)) \
                 or health_probe.is_closed():
-            raise Exception
+            raise HealthProbeFailedException
 
         return True
 
@@ -175,7 +173,7 @@ class VaultClient(object):
         f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
         jwt = f.read()
 
-        self.__api.auth_kubernetes(role=self.__vault_properties.get_vault_kube_policy_name(), jwt=jwt)
+        self.__api.auth_kubernetes(role=self.__vault_properties.vault_kube_policy_name, jwt=jwt)
 
         return True
 
@@ -224,9 +222,9 @@ class VaultClient(object):
                 self.__log.info(f'Enabling GitHub authentication...')
 
                 client.sys.enable_auth_method('github')
-                client.write('auth/github/config', None, organization=self.__github_properties.get_org_name())
-                client.write(f'auth/github/map/teams/{self.__github_properties.get_team_name()}',
-                             None, value=self.__vault_properties.get_vault_github_policy_name())
+                client.write('auth/github/config', None, organization=self.__github_properties.org_name)
+                client.write(f'auth/github/map/teams/{self.__github_properties.team_name}',
+                             None, value=self.__vault_properties.vault_github_policy_name)
 
                 self.__log.info(f'GitHub enabled!')
 
@@ -239,10 +237,10 @@ class VaultClient(object):
                 client.write('auth/kubernetes/config', None, token_reviewer_jwt=jwt,
                              kubernetes_host=f"https://{os.environ['KUBERNETES_PORT_443_TCP_ADDR']}:443",
                              kubernetes_ca_cert="@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
-                client.write(f'auth/kubernetes/role/{self.__vault_properties.get_vault_kube_policy_name()}', wrap_ttl='24h',
+                client.write(f'auth/kubernetes/role/{self.__vault_properties.vault_kube_policy_name}', wrap_ttl='24h',
                              bound_service_account_names=f"{os.environ['VAULT_K8S_NAMESPACE']}-vault",
                              bound_service_account_namespaces=os.environ['VAULT_K8S_NAMESPACE'],
-                             policies=self.__vault_properties.get_vault_kube_policy_name())
+                             policies=self.__vault_properties.vault_kube_policy_name)
 
                 self.__log.info(f'Kubernetes enabled!')
 
@@ -257,7 +255,10 @@ class VaultClient(object):
         if not client.sys.is_initialized():
             self.__log.info(f'Vault is not initialized. Initializing...')
 
-            init_result = client.sys.initialize(self.__key_shares, self.__key_threshold)
+            init_result = client.sys.initialize(
+                self.__vault_properties.vault_key_shares,
+                self.__vault_properties.vault_key_threshold
+            )
 
             unseal_keys = init_result['keys']
             self.__root_token = init_result['root_token']
@@ -269,7 +270,7 @@ class VaultClient(object):
                 self.__slack_message = unseal_message
 
                 asyncio.new_event_loop().run_until_complete(self.__slack_client.post_message(
-                    self.__slack_properties.get_vault_channel(),
+                    self.__slack_properties.vault_channel,
                     **unseal_message.get_body())
                 )
         else:

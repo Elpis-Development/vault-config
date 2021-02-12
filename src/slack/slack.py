@@ -4,13 +4,17 @@ import logging
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.errors import SlackApiError
 
+from util import SlackProperties
+
 
 class SlackClient(object):
-    def __init__(self, full_verbose: bool = False):
+    def __init__(self):
+        self.__slack_properties = SlackProperties()
+
         self.__api = AsyncWebClient(token=os.environ['SLACK_BOT_TOKEN'])
 
         self.__log = logging.getLogger(SlackClient.__class__.__name__)
-        self.__log.setLevel(logging.INFO if full_verbose else logging.ERROR)
+        self.__log.setLevel(logging.INFO if self.__slack_properties.slack_log_full_verbose else logging.ERROR)
 
     async def update_message(self, channel_id: str, ts: str, **kwargs):
         try:

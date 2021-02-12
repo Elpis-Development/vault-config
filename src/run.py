@@ -6,11 +6,11 @@ import time
 from logging.handlers import RotatingFileHandler
 
 import flask
-from flask import Flask, request
+from flask import Flask
 
-from web import SlackController
 from kube import KubernetesClient
 from vault import VaultClient
+from web import SlackController
 
 os.environ['SLACK_BOT_TOKEN'] = "xoxb-1706877555252-1697647264629-J8xZHp779hJv3dTSEnyqgypT"
 os.environ['VAULT_K8S_NAMESPACE'] = "k8s-services"
@@ -35,23 +35,13 @@ root_logger.addHandler(console_handler)
 
 app = Flask(__name__)
 
-vault = VaultClient(True)
+vault = VaultClient()
 kube_client = KubernetesClient()
 
 
 @app.route('/')
 def index():
     return flask.render_template('index.html')
-
-
-# SLACK CONTROLLER
-@app.route(
-    rule=SlackController.SLACK_ACTION_RESOURCE.get_path,
-    methods=SlackController.SLACK_ACTION_RESOURCE.get_methods
-)
-def slack_action():
-    SlackController.slack_action(request=request, vault=vault)
-#
 
 
 def main():
@@ -67,10 +57,17 @@ def main():
 
 atexit.register(vault.close_client)
 
+
+def init_web():
+    SlackController(app, vault)
+
+    app.run(host='0.0.0.0')
+
+
 if __name__ == "__main__":
     task = threading.Thread(target=main)
     task.setDaemon(True)
 
     task.start()
 
-    app.run(host='0.0.0.0')
+    init_web()

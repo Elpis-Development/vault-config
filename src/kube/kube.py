@@ -3,18 +3,22 @@ import os
 
 from kubernetes import config, client
 
+from util.util import KubernetesProperties
+
 
 class KubernetesClient(object):
     CURRENT_PORT = 5000
     SERVICE_PORT = 6000
 
-    def __init__(self, full_verbose: bool = False):
+    def __init__(self):
+        self.__k8s_properties = KubernetesProperties()
+
         config.load_incluster_config()
 
         self.__api = client.CoreV1Api()
 
         self.__log = logging.getLogger(KubernetesClient.__class__.__name__)
-        self.__log.setLevel(logging.INFO if full_verbose else logging.ERROR)
+        self.__log.setLevel(logging.INFO if self.__k8s_properties.k8s_log_full_verbose else logging.ERROR)
 
     def update_self_service(self):
         spec = {
