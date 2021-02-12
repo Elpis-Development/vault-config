@@ -44,6 +44,7 @@ def index():
     return flask.render_template('index.html')
 
 
+# TODO: Install and use python-hcl2 for custom policy configuration
 def main():
     if vault.init_vault():
         kube_client.update_self_service()
