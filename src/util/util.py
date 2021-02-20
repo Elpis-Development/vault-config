@@ -17,16 +17,6 @@ class KubernetesProperties(AppProperties):
         return bool(self.read(KubernetesProperties.__name__, 'k8s.log.fullVerbose'))
 
 
-class SlackProperties(AppProperties):
-    @property
-    def vault_channel(self):
-        return self.read(SlackProperties.__name__, 'slack.vault.channel')
-
-    @property
-    def slack_log_full_verbose(self) -> bool:
-        return bool(self.read(SlackProperties.__name__, 'slack.log.fullVerbose'))
-
-
 class VaultProperties(AppProperties):
     @property
     def vault_address(self) -> str:

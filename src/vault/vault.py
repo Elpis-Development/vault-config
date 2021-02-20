@@ -1,4 +1,3 @@
-import asyncio
 import functools
 import glob
 import logging
@@ -10,9 +9,7 @@ import hvac
 import requests
 
 from exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException
-from slack import SlackClient, VaultUnsealKeysMessage
-from slack.messages import VaultUnsealKeysMessageProcessor, VaultUnsealKeyPrivateMessage
-from util import VaultProperties, GithubProperties, SlackProperties
+from util import VaultProperties, GithubProperties
 
 
 def synchronized(wrapped):
@@ -88,7 +85,6 @@ class VaultClient(object):
     def __init__(self):
         self.__vault_properties = VaultProperties()
         self.__github_properties = GithubProperties()
-        self.__slack_properties = SlackProperties()
 
         self.__probe = lambda initial_delay_seconds=5: HealthProbe(full_verbose=self.__vault_properties.vault_ping_log_full_verbose,
                                                                    initial_delay_seconds=initial_delay_seconds)
@@ -97,7 +93,6 @@ class VaultClient(object):
             raise VaultNotReadyException
 
         self.__api = hvac.Client(url=self.__vault_properties.vault_address)
-        self.__slack_client = SlackClient()
 
         self.__log = logging.getLogger(VaultClient.__class__.__name__)
         self.__log.setLevel(logging.INFO if self.__vault_properties.vault_client_log_full_verbose else logging.ERROR)
@@ -106,8 +101,6 @@ class VaultClient(object):
             raise ValidationException("Vault keys cannot be split for more than 13 parts")
 
         self.__root_token = None
-
-        self.__slack_message = None
 
     @synchronized
     def vault_ready(self):
@@ -124,49 +117,12 @@ class VaultClient(object):
     def close_client(self):
         self.__api.adapter.close()
 
-    def get_slack_unseal_message(self) -> VaultUnsealKeysMessage:
-        return self.__slack_message
-
     @synchronized
     def is_sealed(self):
         client = self.__api
         client.token = self.__root_token
 
         return client.sys.is_sealed()
-
-    @synchronized
-    def unseal(self, slack_vault_message: VaultUnsealKeysMessageProcessor) -> bool:
-        client = self.__api
-        client.token = self.__root_token
-
-        if slack_vault_message and self.get_slack_unseal_message() \
-                and self.get_slack_unseal_message().has_unseal_key(slack_vault_message.action_result) \
-                and client.sys.is_initialized() and client.sys.is_sealed():
-
-            unseal_key = self.get_slack_unseal_message().get_keys_mapping()[slack_vault_message.action_result]
-
-            client.sys.submit_unseal_key(unseal_key)
-
-            self.__slack_message.mark_key_claimed(
-                slack_vault_message.action_result,
-                slack_vault_message.user_id
-            )
-
-            asyncio.new_event_loop().run_until_complete(
-                self.__slack_client.update_message(slack_vault_message.channel_id,
-                                                   slack_vault_message.ts,
-                                                   **self.__slack_message.get_body())
-            )
-
-            asyncio.new_event_loop().run_until_complete(
-                self.__slack_client.post_message(
-                    slack_vault_message.user_id,
-                    **VaultUnsealKeyPrivateMessage(key_name=slack_vault_message.action_result, key_value=unseal_key).get_body())
-            )
-
-            return True
-
-        return False
 
     @synchronized
     def kube_auth(self):
@@ -264,15 +220,14 @@ class VaultClient(object):
             self.__root_token = init_result['root_token']
 
             if client.sys.is_initialized() and client.sys.is_sealed():
-                self.__log.info(f'Vault was initialized. Vault is sealed! Please, provide unseal keys via UI')
+                self.__log.info(f'Vault was initialized, but is sealed.')
 
-                unseal_message = VaultUnsealKeysMessage(True, unseal_keys)
-                self.__slack_message = unseal_message
+                for key in unseal_keys:
+                    print(os.linesep)
+                    print(f"Vault unseal key: {key}")
 
-                asyncio.new_event_loop().run_until_complete(self.__slack_client.post_message(
-                    self.__slack_properties.vault_channel,
-                    **unseal_message.get_body())
-                )
+                print(os.linesep)
+
         else:
             self.__log.info(f'Vault was already initialized.')
 

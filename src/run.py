@@ -10,7 +10,6 @@ from flask import Flask
 
 from kube import KubernetesClient
 from vault import VaultClient
-from web import SlackController
 
 os.environ['SLACK_BOT_TOKEN'] = "xoxb-1706877555252-1697647264629-J8xZHp779hJv3dTSEnyqgypT"
 os.environ['VAULT_K8S_NAMESPACE'] = "k8s-services"
@@ -60,8 +59,6 @@ atexit.register(vault.close_client)
 
 
 def init_web():
-    SlackController(app, vault)
-
     app.run(host='0.0.0.0')
 
 
