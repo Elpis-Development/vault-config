@@ -1,1 +1,1 @@
-from .util import SlackProperties, GithubProperties, VaultProperties
+from .util import KubernetesProperties, GithubProperties, VaultProperties

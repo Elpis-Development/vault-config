@@ -20,11 +20,11 @@ class KubernetesProperties(AppProperties):
 class VaultProperties(AppProperties):
     @property
     def vault_address(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.address')
+        return f"http://localhost:8200"
 
     @property
     def vault_ping_address(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.ping.address')
+        return f"{self.vault_address}{self.read(VaultProperties.__name__, 'vault.ping.address')}"
 
     @property
     def vault_github_policy_name(self) -> str:

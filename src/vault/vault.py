@@ -27,7 +27,7 @@ class HealthProbe(object):
     def __init__(self, full_verbose: bool = False, failure_threshold: int = 2, initial_delay_seconds: int = 5,
                  period_seconds: int = 5, success_threshold: int = 1, timeout_seconds: int = 3):
 
-        self.__log = logging.getLogger(HealthProbe.__class__.__name__)
+        self.__log = logging.getLogger(HealthProbe.__name__)
         self.__log.setLevel(logging.INFO if full_verbose else logging.ERROR)
 
         self.__failure_threshold = failure_threshold
@@ -57,15 +57,18 @@ class HealthProbe(object):
             try:
                 response = request()
 
+                self.__log.info(response.text)
+
                 if response.status_code == 200:
                     successes += 1
                     self.__log.info(f'Health probe succeeded!')
                 else:
                     failures += 1
                     self.__log.info(f'Health probe failed.')
-            except Exception:
+            except Exception as e:
                 failures += 1
                 self.__log.info(f'Health probe failed.')
+                self.__log.error(e)
 
             if not successes == self.__success_threshold:
                 self.__log.info(f'Retrying...')
@@ -86,16 +89,17 @@ class VaultClient(object):
         self.__vault_properties = VaultProperties()
         self.__github_properties = GithubProperties()
 
-        self.__probe = lambda initial_delay_seconds=5: HealthProbe(full_verbose=self.__vault_properties.vault_ping_log_full_verbose,
-                                                                   initial_delay_seconds=initial_delay_seconds)
+        self.__log = logging.getLogger(VaultClient.__name__)
+        self.__log.setLevel(logging.INFO if self.__vault_properties.vault_client_log_full_verbose else logging.ERROR)
+
+        self.__probe = lambda initial_delay_seconds=5: HealthProbe(
+            full_verbose=self.__vault_properties.vault_ping_log_full_verbose,
+            initial_delay_seconds=initial_delay_seconds)
 
         if not self.vault_ready():
             raise VaultNotReadyException
 
         self.__api = hvac.Client(url=self.__vault_properties.vault_address)
-
-        self.__log = logging.getLogger(VaultClient.__class__.__name__)
-        self.__log.setLevel(logging.INFO if self.__vault_properties.vault_client_log_full_verbose else logging.ERROR)
 
         if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
             raise ValidationException("Vault keys cannot be split for more than 13 parts")
@@ -139,7 +143,7 @@ class VaultClient(object):
         client.token = self.__root_token
 
         if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
-            backends = client.list_secret_backends()
+            backends = client.sys.list_mounted_secrets_engines()
             if "kv-v2/" not in backends:
                 self.__log.info(f'Enabling KV2 secret engine...')
 
@@ -173,7 +177,7 @@ class VaultClient(object):
         client.token = self.__root_token
 
         if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
-            backends = client.sys.list_auth_methods()
+            backends = client.sys.list_mounted_secrets_engines()
             if "github/" not in backends:
                 self.__log.info(f'Enabling GitHub authentication...')
 
@@ -220,17 +224,17 @@ class VaultClient(object):
             self.__root_token = init_result['root_token']
 
             if client.sys.is_initialized() and client.sys.is_sealed():
-                self.__log.info(f'Vault was initialized, but is sealed.')
+                self.__log.info(f'Vault was initialized! Performing unseal...')
 
                 for key in unseal_keys:
-                    print(os.linesep)
-                    print(f"Vault unseal key: {key}")
+                    self.__api.sys.submit_unseal_key(key)
+                    self.__log.info(f"Vault unseal key: {key}")
 
-                print(os.linesep)
+                self.__log.info(f'Vault was unsealed. Happy using!')
 
         else:
             self.__log.info(f'Vault was already initialized.')
 
             return False
 
-        return client.sys.is_initialized()
+        return client.sys.is_initialized() and not client.sys.is_sealed()
