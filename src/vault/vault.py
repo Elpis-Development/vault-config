@@ -57,8 +57,6 @@ class HealthProbe(object):
             try:
                 response = request()
 
-                self.__log.info(response.text)
-
                 if response.status_code == 200:
                     successes += 1
                     self.__log.info(f'Health probe succeeded!')
@@ -104,6 +102,10 @@ class VaultClient(object):
         if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
             raise ValidationException("Vault keys cannot be split for more than 13 parts")
 
+        self.__root_token = None
+
+    @synchronized
+    def void_root_token(self):
         self.__root_token = None
 
     @synchronized

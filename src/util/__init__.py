@@ -1,1 +1,1 @@
-from .util import KubernetesProperties, GithubProperties, VaultProperties
+from .util import GithubProperties, VaultProperties

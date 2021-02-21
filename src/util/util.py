@@ -11,20 +11,14 @@ class AppProperties(object):
         return self.__config[section_name][property_key]
 
 
-class KubernetesProperties(AppProperties):
-    @property
-    def k8s_log_full_verbose(self) -> bool:
-        return bool(self.read(KubernetesProperties.__name__, 'k8s.log.fullVerbose'))
-
-
 class VaultProperties(AppProperties):
     @property
     def vault_address(self) -> str:
-        return f"http://localhost:8200"
+        return self.read(VaultProperties.__name__, 'vault.address')
 
     @property
     def vault_ping_address(self) -> str:
-        return f"{self.vault_address}{self.read(VaultProperties.__name__, 'vault.ping.address')}"
+        return self.read(VaultProperties.__name__, 'vault.ping.address')
 
     @property
     def vault_github_policy_name(self) -> str:

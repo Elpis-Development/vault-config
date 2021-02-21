@@ -3,7 +3,7 @@ FROM python:3.9
 ENV HOME="/init"
 
 RUN mkdir /init && mkdir /init/logs && chmod 777 /init && chmod 777 /init/logs \
- && pip install kubernetes hvac requests flask aiohttp
+ && pip install hvac requests flask aiohttp waitress
 
 ADD src /init/src
 ADD acl /init/acl

@@ -4,8 +4,8 @@ import os
 import threading
 from logging.handlers import RotatingFileHandler
 
-import flask
-from flask import Flask
+from flask import Flask, render_template
+from waitress import serve
 
 from vault import VaultClient
 
@@ -35,7 +35,7 @@ vault = VaultClient()
 
 @app.route('/')
 def index():
-    return flask.render_template('index.html')
+    return render_template('index.html')
 
 
 # TODO: Install and use python-hcl2 for custom policy configuration
@@ -43,12 +43,14 @@ def main():
     if vault.init_vault() and vault.enable_secrets() and vault.apply_policies() and vault.enable_auth():
         print("Done!")
 
+    vault.void_root_token()
+
 
 atexit.register(vault.close_client)
 
 
 def init_web():
-    app.run(host='0.0.0.0')
+    serve(app, host='0.0.0.0', port=5000)
 
 
 if __name__ == "__main__":
