@@ -139,76 +139,76 @@ class VaultClient(object):
 
         return True
 
-    @synchronized
-    def enable_secrets(self) -> bool:
-        client = self.__api
-        client.token = self.__root_token
+    # @synchronized
+    # def enable_secrets(self) -> bool:
+    #     client = self.__api
+    #     client.token = self.__root_token
+    #
+    #     if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
+    #         backends = client.sys.list_mounted_secrets_engines()
+    #         if "kv-v2/" not in backends:
+    #             self.__log.info(f'Enabling KV2 secret engine...')
+    #
+    #             client.sys.enable_secrets_engine('kv-v2', path='kv')
+    #
+    #             self.__log.info(f'Enabled successfully!')
+    #
+    #     return True
 
-        if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
-            backends = client.sys.list_mounted_secrets_engines()
-            if "kv-v2/" not in backends:
-                self.__log.info(f'Enabling KV2 secret engine...')
+    # @synchronized
+    # def apply_policies(self) -> bool:
+    #     client = self.__api
+    #     client.token = self.__root_token
+    #
+    #     if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
+    #         policies_path = f'/init/acl/policies'
+    #
+    #         for filename in glob.glob(os.path.join(policies_path, '*.hcl')):
+    #             head, policy_name = os.path.split(os.path.splitext(filename)[0])
+    #
+    #             with open(filename, 'r') as f:
+    #                 policy = f.read()
+    #
+    #                 client.sys.create_or_update_policy(policy_name, policy)
+    #
+    #     return True
 
-                client.sys.enable_secrets_engine('kv-v2', path='kv')
-
-                self.__log.info(f'Enabled successfully!')
-
-        return True
-
-    @synchronized
-    def apply_policies(self) -> bool:
-        client = self.__api
-        client.token = self.__root_token
-
-        if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
-            policies_path = f'/init/acl/policies'
-
-            for filename in glob.glob(os.path.join(policies_path, '*.hcl')):
-                head, policy_name = os.path.split(os.path.splitext(filename)[0])
-
-                with open(filename, 'r') as f:
-                    policy = f.read()
-
-                    client.sys.create_or_update_policy(policy_name, policy)
-
-        return True
-
-    @synchronized
-    def enable_auth(self) -> bool:
-        client = self.__api
-        client.token = self.__root_token
-
-        if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
-            backends = client.sys.list_mounted_secrets_engines()
-            if "github/" not in backends:
-                self.__log.info(f'Enabling GitHub authentication...')
-
-                client.sys.enable_auth_method('github')
-                client.write('auth/github/config', None, organization=self.__github_properties.org_name)
-                client.write(f'auth/github/map/teams/{self.__github_properties.team_name}',
-                             None, value=self.__vault_properties.vault_github_policy_name)
-
-                self.__log.info(f'GitHub enabled!')
-
-            if "kubernetes/" not in backends:
-                self.__log.info(f'Enabling Kubernetes authentication...')
-
-                client.sys.enable_auth_method('kubernetes')
-                f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
-                jwt = f.read()
-                client.write('auth/kubernetes/config', None, token_reviewer_jwt=jwt,
-                             kubernetes_host=f"https://{os.environ['KUBERNETES_PORT_443_TCP_ADDR']}:443",
-                             kubernetes_ca_cert="@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
-                client.write(f'auth/kubernetes/role/{self.__vault_properties.vault_kube_policy_name}', wrap_ttl='24h',
-                             bound_service_account_names=f"{os.environ['VAULT_K8S_NAMESPACE']}-vault",
-                             bound_service_account_namespaces=os.environ['VAULT_K8S_NAMESPACE'],
-                             policies=self.__vault_properties.vault_kube_policy_name)
-
-                self.__log.info(f'Kubernetes enabled!')
-
-            return True
-
-        return False
+    # @synchronized
+    # def enable_auth(self) -> bool:
+    #     client = self.__api
+    #     client.token = self.__root_token
+    #
+    #     if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
+    #         backends = client.sys.list_mounted_secrets_engines()
+    #         if "github/" not in backends:
+    #             self.__log.info(f'Enabling GitHub authentication...')
+    #
+    #             client.sys.enable_auth_method('github')
+    #             client.write('auth/github/config', None, organization=self.__github_properties.org_name)
+    #             client.write(f'auth/github/map/teams/{self.__github_properties.team_name}',
+    #                          None, value=self.__vault_properties.vault_github_policy_name)
+    #
+    #             self.__log.info(f'GitHub enabled!')
+    #
+    #         if "kubernetes/" not in backends:
+    #             self.__log.info(f'Enabling Kubernetes authentication...')
+    #
+    #             client.sys.enable_auth_method('kubernetes')
+    #             f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
+    #             jwt = f.read()
+    #             client.write('auth/kubernetes/config', None, token_reviewer_jwt=jwt,
+    #                          kubernetes_host=f"https://{os.environ['KUBERNETES_PORT_443_TCP_ADDR']}:443",
+    #                          kubernetes_ca_cert="@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+    #             client.write(f'auth/kubernetes/role/{self.__vault_properties.vault_kube_policy_name}', wrap_ttl='24h',
+    #                          bound_service_account_names=f"{os.environ['VAULT_K8S_NAMESPACE']}-vault",
+    #                          bound_service_account_namespaces=os.environ['VAULT_K8S_NAMESPACE'],
+    #                          policies=self.__vault_properties.vault_kube_policy_name)
+    #
+    #             self.__log.info(f'Kubernetes enabled!')
+    #
+    #         return True
+    #
+    #     return False
 
     @synchronized
     def init_vault(self) -> bool:

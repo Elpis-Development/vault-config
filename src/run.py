@@ -38,9 +38,15 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/hcl')
+def hcl(body):
+    print(body)
+
+
 # TODO: Install and use python-hcl2 for custom policy configuration
 def main():
-    if vault.init_vault() and vault.enable_secrets() and vault.apply_policies() and vault.enable_auth():
+    if vault.init_vault():
+        # if vault.init_vault() and vault.enable_secrets() and vault.apply_policies() and vault.enable_auth():
         print("Done!")
 
     vault.void_root_token()

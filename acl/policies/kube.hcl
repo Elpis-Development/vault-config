@@ -12,6 +12,6 @@ path "sys/policies/acl"
 # Create and manage ACL policies
 path "sys/policies/acl/*"
 {
-  capabilities = ["create", "read", "update", "delete", "list", "sudo"]
+  capabilities = ["create", "read", "update", "delete", "list"]
 }
 
