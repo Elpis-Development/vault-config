@@ -1,5 +1,4 @@
 import functools
-import glob
 import logging
 import os
 import threading
@@ -8,8 +7,11 @@ import time
 import hvac
 import requests
 
-from exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException
+from exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException, \
+    VaultClientNotAuthenticatedException
+from kube.client import KubernetesClient
 from util import VaultProperties, GithubProperties
+from .config import HCLConfigBundle
 
 
 def synchronized(wrapped):
@@ -87,6 +89,8 @@ class VaultClient(object):
         self.__vault_properties = VaultProperties()
         self.__github_properties = GithubProperties()
 
+        self.__vault_config = HCLConfigBundle(self.__vault_properties.vault_client_log_full_verbose)
+
         self.__log = logging.getLogger(VaultClient.__name__)
         self.__log.setLevel(logging.INFO if self.__vault_properties.vault_client_log_full_verbose else logging.ERROR)
 
@@ -98,11 +102,47 @@ class VaultClient(object):
             raise VaultNotReadyException
 
         self.__api = hvac.Client(url=self.__vault_properties.vault_address)
+        self.__kube_client = KubernetesClient()
 
         if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
             raise ValidationException("Vault keys cannot be split for more than 13 parts")
 
         self.__root_token = None
+
+        self.__role_actions = {
+            'github': lambda role_name, role: self.__config_github(role_name, role),
+            'kubernetes': lambda role_name, role: self.__config_kube(role_name, role)
+        }
+
+    def __config_github(self, role_name: str, role: dict):
+        self.__log.info(f'Configuring GitHub role {role_name}...')
+
+        self.__api.write(f'auth/{role["auth_path"]}/config', None, organization=role['org'])
+
+        policies = ','.join(role['policies'])
+
+        self.__api.write(f'auth/{role["auth_path"]}/map/teams/{role["team_name"]}', None,
+                         value=policies)
+
+        self.__log.info(f'GitHub role {role_name} is set up!')
+
+    def __config_kube(self, role_name: str, role: dict):
+        self.__log.info(f'Configuring k8s role {role_name}...')
+
+        namespace = role["bound_service_account_namespace"]
+        sa_name = role["bound_service_account_name"]
+
+        secrets = self.__kube_client.get_service_account_secrets(sa_name, namespace)
+
+        self.__api.write(f'auth/{role["auth_path"]}/config', None, token_reviewer_jwt=secrets['jwt'],
+                         kubernetes_host=f"https://{os.environ['KUBERNETES_PORT_443_TCP_ADDR']}:443",
+                         kubernetes_ca_cert=secrets['ca'],
+                         disable_local_ca_jwt=True)
+
+        self.__api.write(f'auth/{role["auth_path"]}/role/{role_name}', wrap_ttl=role["wrap_ttl"],
+                         bound_service_account_names=sa_name,
+                         bound_service_account_namespaces=namespace,
+                         policies=role["policies"])
 
     @synchronized
     def void_root_token(self):
@@ -125,90 +165,100 @@ class VaultClient(object):
 
     @synchronized
     def is_sealed(self):
+        if not self.auth():
+            raise VaultClientNotAuthenticatedException()
+
         client = self.__api
-        client.token = self.__root_token
 
         return client.sys.is_sealed()
 
     @synchronized
-    def kube_auth(self):
-        f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
-        jwt = f.read()
+    def auth(self):
+        if self.__root_token:
+            self.__api.token = self.__root_token
+        elif "kubernetes/" in self.__api.sys.list_auth_methods():
+            f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
+            jwt = f.read()
 
-        self.__api.auth_kubernetes(role=self.__vault_properties.vault_kube_policy_name, jwt=jwt)
+            self.__api.auth_kubernetes(role=self.__vault_properties.vault_kube_policy_name, jwt=jwt)
 
-        return True
+        return self.__api.is_authenticated()
 
-    # @synchronized
-    # def enable_secrets(self) -> bool:
-    #     client = self.__api
-    #     client.token = self.__root_token
-    #
-    #     if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
-    #         backends = client.sys.list_mounted_secrets_engines()
-    #         if "kv-v2/" not in backends:
-    #             self.__log.info(f'Enabling KV2 secret engine...')
-    #
-    #             client.sys.enable_secrets_engine('kv-v2', path='kv')
-    #
-    #             self.__log.info(f'Enabled successfully!')
-    #
-    #     return True
+    @synchronized
+    def enable_secrets(self):
+        if not self.auth():
+            raise VaultClientNotAuthenticatedException()
 
-    # @synchronized
-    # def apply_policies(self) -> bool:
-    #     client = self.__api
-    #     client.token = self.__root_token
-    #
-    #     if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
-    #         policies_path = f'/init/acl/policies'
-    #
-    #         for filename in glob.glob(os.path.join(policies_path, '*.hcl')):
-    #             head, policy_name = os.path.split(os.path.splitext(filename)[0])
-    #
-    #             with open(filename, 'r') as f:
-    #                 policy = f.read()
-    #
-    #                 client.sys.create_or_update_policy(policy_name, policy)
-    #
-    #     return True
+        client = self.__api
 
-    # @synchronized
-    # def enable_auth(self) -> bool:
-    #     client = self.__api
-    #     client.token = self.__root_token
-    #
-    #     if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
-    #         backends = client.sys.list_mounted_secrets_engines()
-    #         if "github/" not in backends:
-    #             self.__log.info(f'Enabling GitHub authentication...')
-    #
-    #             client.sys.enable_auth_method('github')
-    #             client.write('auth/github/config', None, organization=self.__github_properties.org_name)
-    #             client.write(f'auth/github/map/teams/{self.__github_properties.team_name}',
-    #                          None, value=self.__vault_properties.vault_github_policy_name)
-    #
-    #             self.__log.info(f'GitHub enabled!')
-    #
-    #         if "kubernetes/" not in backends:
-    #             self.__log.info(f'Enabling Kubernetes authentication...')
-    #
-    #             client.sys.enable_auth_method('kubernetes')
-    #             f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
-    #             jwt = f.read()
-    #             client.write('auth/kubernetes/config', None, token_reviewer_jwt=jwt,
-    #                          kubernetes_host=f"https://{os.environ['KUBERNETES_PORT_443_TCP_ADDR']}:443",
-    #                          kubernetes_ca_cert="@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
-    #             client.write(f'auth/kubernetes/role/{self.__vault_properties.vault_kube_policy_name}', wrap_ttl='24h',
-    #                          bound_service_account_names=f"{os.environ['VAULT_K8S_NAMESPACE']}-vault",
-    #                          bound_service_account_namespaces=os.environ['VAULT_K8S_NAMESPACE'],
-    #                          policies=self.__vault_properties.vault_kube_policy_name)
-    #
-    #             self.__log.info(f'Kubernetes enabled!')
-    #
-    #         return True
-    #
-    #     return False
+        if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
+            backends = client.sys.list_mounted_secrets_engines()
+            if "kv-v2/" not in backends:
+                self.__log.info(f'Enabling KV2 secret engine...')
+
+                client.sys.enable_secrets_engine('kv-v2', path='kv')
+
+                self.__log.info(f'Enabled successfully!')
+
+    @synchronized
+    def apply_policies(self):
+        if not self.auth():
+            raise VaultClientNotAuthenticatedException()
+
+        client = self.__api
+
+        if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
+            policies = self.__vault_config.get_all_policies()
+
+            for policy in policies:
+                client.sys.create_or_update_policy(policy, policies[policy])
+
+    @synchronized
+    def enable_auth_backends(self):
+        if not self.auth():
+            raise VaultClientNotAuthenticatedException()
+
+        client = self.__api
+
+        if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
+            auth_backends = client.sys.list_auth_methods()
+
+            auth_list = self.__vault_config.get_all_auth()
+
+            for auth_path in auth_list:
+                auth_type = auth_list[auth_path]['type']
+
+                if self.__vault_config.is_auth_enabled(auth_path):
+                    self.__log.info(f'Enabling {auth_type} on path /{auth_path}.')
+
+                    client.sys.enable_auth_method(method_type=auth_type,
+                                                  description=auth_list[auth_path]["description"],
+                                                  path=auth_path)
+                elif f'{auth_path}/' in auth_backends:
+                    self.__log.info(f'Disabling {auth_type} on path /{auth_path}.')
+
+                    client.sys.disable_auth_method(auth_path)
+
+    @synchronized
+    def apply_auth_roles(self):
+        if not self.auth():
+            raise VaultClientNotAuthenticatedException()
+
+        client = self.__api
+
+        if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
+            auth_backends = client.sys.list_auth_methods()
+
+            roles = self.__vault_config.get_all_roles()
+
+            for role_name in roles:
+                role = roles[role_name]
+
+                if f'{role["auth_path"]}/' in auth_backends and role['type'] in self.__role_actions \
+                        and self.__vault_config.is_role_enabled(role_name):
+                    self.__role_actions[role['type']](role_name, role)
+                elif f'{role["auth_path"]}/' in auth_backends:
+                    self.__api.delete(f'auth/{role["auth_path"]}/config')
 
     @synchronized
     def init_vault(self) -> bool:
@@ -236,7 +286,5 @@ class VaultClient(object):
 
         else:
             self.__log.info(f'Vault was already initialized.')
-
-            return False
 
         return client.sys.is_initialized() and not client.sys.is_sealed()

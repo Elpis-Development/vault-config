@@ -3,6 +3,7 @@ import logging
 import os
 import threading
 from logging.handlers import RotatingFileHandler
+from time import sleep
 
 from flask import Flask, render_template
 from waitress import serve
@@ -38,18 +39,17 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/hcl')
-def hcl(body):
-    print(body)
-
-
 # TODO: Install and use python-hcl2 for custom policy configuration
 def main():
-    if vault.init_vault():
-        # if vault.init_vault() and vault.enable_secrets() and vault.apply_policies() and vault.enable_auth():
-        print("Done!")
+    while not vault.init_vault():
+        sleep(30)
 
-    vault.void_root_token()
+    vault.enable_secrets()
+    vault.apply_policies()
+    vault.enable_auth_backends()
+    vault.apply_auth_roles()
+
+    # vault.void_root_token()
 
 
 atexit.register(vault.close_client)

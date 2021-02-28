@@ -1,1 +1,1 @@
-from .exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException
+from .exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException, VaultClientNotAuthenticatedException
