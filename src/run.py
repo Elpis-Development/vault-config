@@ -10,8 +10,7 @@ from waitress import serve
 
 from vault import VaultClient
 
-# os.environ['VAULT_K8S_NAMESPACE'] = "k8s-services"
-# os.environ['HOME'] = "C:/Users/oleks/Documents/GitHub/vault-config"
+# os.environ['VAULT_K8S_NAMESPACE'] = "elpis-tools"
 # os.environ['EXTERNAL_PORT'] = "32200"
 
 log_formatter = logging.Formatter(fmt='%(asctime)s - %(name)s - %(message)s',
@@ -44,12 +43,13 @@ def main():
     while not vault.init_vault():
         sleep(30)
 
+    vault.enable_auth_backends()
+
     vault.enable_secrets()
     vault.apply_policies()
-    vault.enable_auth_backends()
     vault.apply_auth_roles()
 
-    # vault.void_root_token()
+    vault.void_root_token()
 
 
 atexit.register(vault.close_client)

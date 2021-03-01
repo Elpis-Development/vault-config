@@ -115,7 +115,14 @@ class VaultClient(object):
 
     # Private helpers
     def __enable_incluster_kube_auth(self):
-        self.__log.info(f'Enabling internal Kubernetes auth...')
+        sa_name = self.__kube_client.get_service_account_name_for_pod(f'{os.environ["VAULT_K8S_NAMESPACE"]}-vault-0',
+                                                                      os.environ['VAULT_K8S_NAMESPACE'])
+
+        self.__log.info(f'Enabling internal Kubernetes auth on /kubernetes with role: \
+                        {self.__vault_properties.vault_kube_internal_role_name} for account: \
+                        {sa_name} with policies: {self.__vault_properties.vault_kube_internal_policies}')
+
+        self.__api.sys.enable_auth_method(method_type='kubernetes', path='kubernetes')
 
         f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
         jwt = f.read()
@@ -126,12 +133,11 @@ class VaultClient(object):
 
         self.__api.write(f'auth/kubernetes/role/{self.__vault_properties.vault_kube_internal_role_name}',
                          wrap_ttl=self.__vault_properties.vault_kube_internal_ttl,
-                         bound_service_account_names=self.__kube_client.get_service_account_name_for_pod(
-                             f'{os.environ["VAULT_K8S_NAMESPACE"]}-vault-0', os.environ['VAULT_K8S_NAMESPACE']),
+                         bound_service_account_names=sa_name,
                          bound_service_account_namespaces=os.environ['VAULT_K8S_NAMESPACE'],
                          policies=self.__vault_properties.vault_kube_internal_policies)
 
-        self.__log.info(f'Internal Kubernetes auth was enabled.')
+        self.__log.info(f'Internal Kubernetes auth at /kubernetes was enabled.')
 
     def __config_github(self, role_name: str, role: dict):
         self.__log.info(f'Configuring GitHub role {role_name}...')
@@ -242,6 +248,8 @@ class VaultClient(object):
         client = self.__api
 
         if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
+            self.__enable_incluster_kube_auth()
+
             auth_backends = client.sys.list_auth_methods()
 
             auth_list = self.__vault_config.get_all_auth()
