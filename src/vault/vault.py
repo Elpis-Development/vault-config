@@ -6,11 +6,11 @@ import time
 
 import hvac
 import requests
-
 from exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException, \
     VaultClientNotAuthenticatedException
 from kube.client import KubernetesClient
-from util import VaultProperties, GithubProperties
+from util import VaultProperties
+
 from .config import HCLConfigBundle
 
 
@@ -87,7 +87,9 @@ class HealthProbe(object):
 class VaultClient(object):
     def __init__(self):
         self.__vault_properties = VaultProperties()
-        self.__github_properties = GithubProperties()
+
+        if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
+            raise ValidationException("Vault keys cannot be split for more than 13 parts")
 
         self.__vault_config = HCLConfigBundle(self.__vault_properties.vault_client_log_full_verbose)
 
@@ -104,15 +106,32 @@ class VaultClient(object):
         self.__api = hvac.Client(url=self.__vault_properties.vault_address)
         self.__kube_client = KubernetesClient()
 
-        if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
-            raise ValidationException("Vault keys cannot be split for more than 13 parts")
-
         self.__root_token = None
 
         self.__role_actions = {
             'github': lambda role_name, role: self.__config_github(role_name, role),
             'kubernetes': lambda role_name, role: self.__config_kube(role_name, role)
         }
+
+    # Private helpers
+    def __enable_incluster_kube_auth(self):
+        self.__log.info(f'Enabling internal Kubernetes auth...')
+
+        f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
+        jwt = f.read()
+
+        self.__api.write(f'auth/kubernetes/config', None, token_reviewer_jwt=jwt,
+                         kubernetes_host=f"https://{os.environ['KUBERNETES_PORT_443_TCP_ADDR']}:443",
+                         kubernetes_ca_cert='@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt')
+
+        self.__api.write(f'auth/kubernetes/role/{self.__vault_properties.vault_kube_internal_role_name}',
+                         wrap_ttl=self.__vault_properties.vault_kube_internal_ttl,
+                         bound_service_account_names=self.__kube_client.get_service_account_name_for_pod(
+                             f'{os.environ["VAULT_K8S_NAMESPACE"]}-vault-0', os.environ['VAULT_K8S_NAMESPACE']),
+                         bound_service_account_namespaces=os.environ['VAULT_K8S_NAMESPACE'],
+                         policies=self.__vault_properties.vault_kube_internal_policies)
+
+        self.__log.info(f'Internal Kubernetes auth was enabled.')
 
     def __config_github(self, role_name: str, role: dict):
         self.__log.info(f'Configuring GitHub role {role_name}...')
@@ -129,8 +148,8 @@ class VaultClient(object):
     def __config_kube(self, role_name: str, role: dict):
         self.__log.info(f'Configuring k8s role {role_name}...')
 
-        namespace = role["bound_service_account_namespace"]
-        sa_name = role["bound_service_account_name"]
+        namespace = role['bound_service_account_namespace']
+        sa_name = role['bound_service_account_name']
 
         secrets = self.__kube_client.get_service_account_secrets(sa_name, namespace)
 
@@ -139,14 +158,19 @@ class VaultClient(object):
                          kubernetes_ca_cert=secrets['ca'],
                          disable_local_ca_jwt=True)
 
-        self.__api.write(f'auth/{role["auth_path"]}/role/{role_name}', wrap_ttl=role["wrap_ttl"],
+        self.__api.write(f'auth/{role["auth_path"]}/role/{role_name}', wrap_ttl=role['wrap_ttl'],
                          bound_service_account_names=sa_name,
                          bound_service_account_namespaces=namespace,
-                         policies=role["policies"])
+                         policies=role['policies'])
 
+    # Misc
     @synchronized
     def void_root_token(self):
         self.__root_token = None
+
+    @synchronized
+    def close_client(self):
+        self.__api.adapter.close()
 
     @synchronized
     def vault_ready(self):
@@ -160,10 +184,6 @@ class VaultClient(object):
         return True
 
     @synchronized
-    def close_client(self):
-        self.__api.adapter.close()
-
-    @synchronized
     def is_sealed(self):
         if not self.auth():
             raise VaultClientNotAuthenticatedException()
@@ -172,6 +192,7 @@ class VaultClient(object):
 
         return client.sys.is_sealed()
 
+    # Core
     @synchronized
     def auth(self):
         if self.__root_token:
@@ -180,7 +201,7 @@ class VaultClient(object):
             f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
             jwt = f.read()
 
-            self.__api.auth_kubernetes(role=self.__vault_properties.vault_kube_policy_name, jwt=jwt)
+            self.__api.auth_kubernetes(role=self.__vault_properties.vault_kube_internal_role_name, jwt=jwt)
 
         return self.__api.is_authenticated()
 

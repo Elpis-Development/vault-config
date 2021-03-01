@@ -21,12 +21,16 @@ class VaultProperties(AppProperties):
         return self.read(VaultProperties.__name__, 'vault.ping.address')
 
     @property
-    def vault_github_policy_name(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.github.user.policy')
+    def vault_kube_internal_policies(self) -> list:
+        return self.read(VaultProperties.__name__, 'vault.kubernetes.internal.policies').split(',')
 
     @property
-    def vault_kube_policy_name(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.kubernetes.policy')
+    def vault_kube_internal_role_name(self) -> str:
+        return self.read(VaultProperties.__name__, 'vault.kubernetes.internal.role')
+
+    @property
+    def vault_kube_internal_ttl(self) -> str:
+        return self.read(VaultProperties.__name__, 'vault.kubernetes.internal.wrapTTL')
 
     @property
     def vault_key_threshold(self) -> int:
@@ -63,13 +67,3 @@ class VaultProperties(AppProperties):
     @property
     def vault_client_log_full_verbose(self) -> bool:
         return bool(self.read(VaultProperties.__name__, 'vault.client.log.fullVerbose'))
-
-
-class GithubProperties(AppProperties):
-    @property
-    def org_name(self):
-        return self.read(GithubProperties.__name__, 'github.org.name')
-
-    @property
-    def team_name(self):
-        return self.read(GithubProperties.__name__, 'github.team.name')

@@ -17,6 +17,11 @@ class KubernetesClient(object):
 
         self.__core_v1_api = client.CoreV1Api()
 
+    def get_service_account_name_for_pod(self, pod_name: str, namespace: str):
+        pod = self.__core_v1_api.read_namespaced_pod(pod_name, namespace)
+
+        return pod.metadata.annotations['kubernetes.io/service-account.name'] if pod else None
+
     def get_service_account_secrets(self, sa_name: str, namespace: str):
         secrets = self.__core_v1_api.list_namespaced_secret(namespace=namespace)
 
@@ -26,6 +31,5 @@ class KubernetesClient(object):
                     'jwt': base64.b64decode(secret.data['token']).decode(),
                     'ca': base64.b64decode(secret.data['ca.crt']).decode(),
                 }
-                
-        return {}       
 
+        return {}

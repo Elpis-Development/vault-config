@@ -1,1 +1,1 @@
-from .util import GithubProperties, VaultProperties
+from .util import VaultProperties
