@@ -198,6 +198,15 @@ class VaultClient(object):
 
         return client.sys.is_sealed()
 
+    @synchronized
+    def is_running(self):
+        if not self.auth():
+            raise VaultClientNotAuthenticatedException()
+
+        client = self.__api
+
+        return client.sys.is_initialized() and not client.sys.is_sealed()
+
     # Core
     @synchronized
     def auth(self):

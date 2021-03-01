@@ -38,9 +38,10 @@ def index():
     return render_template('index.html')
 
 
-# TODO: Install and use python-hcl2 for custom policy configuration
 def main():
-    while not vault.init_vault():
+    vault.init_vault()
+
+    while not vault.is_running():
         sleep(30)
 
     vault.enable_auth_backends()
