@@ -6,12 +6,12 @@ import time
 
 import hvac
 import requests
+
 from exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException, \
     VaultClientNotAuthenticatedException
 from kube.client import KubernetesClient
 from util import VaultProperties
-
-from .config import HCLConfigBundle
+from .config import HCLConfigBundle, ConfigType
 
 
 def synchronized(wrapped):
@@ -86,16 +86,15 @@ class HealthProbe(object):
 
 class VaultClient(object):
     def __init__(self):
+        self.__log = logging.getLogger(VaultClient.__name__)
+        self.__log.setLevel(logging.DEBUG if self.__vault_properties.vault_client_log_full_verbose else logging.INFO)
+
         self.__vault_properties = VaultProperties()
 
         if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
             raise ValidationException("Vault keys cannot be split for more than 13 parts")
 
-        self.__vault_config = HCLConfigBundle(self.__vault_properties.vault_client_log_full_verbose)
-
-        self.__log = logging.getLogger(VaultClient.__name__)
-        # TODO: INFO -> DEBUG | ERROR -> INFO
-        self.__log.setLevel(logging.INFO if self.__vault_properties.vault_client_log_full_verbose else logging.ERROR)
+        self.__config_bundle = HCLConfigBundle(self.__vault_properties.vault_client_log_full_verbose)
 
         self.__probe = lambda initial_delay_seconds=5: HealthProbe(
             full_verbose=self.__vault_properties.vault_ping_log_full_verbose,
@@ -233,13 +232,20 @@ class VaultClient(object):
 
         if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
             backends = client.sys.list_mounted_secrets_engines()
-            # TODO: Add flexible way with HCL secret configs
-            if "kv-v2/" not in backends:
-                self.__log.info(f'Enabling KV2 secret engine...')
 
-                client.sys.enable_secrets_engine('kv-v2', path='kv')
+            secrets = self.__config_bundle.get_whole_bundle_config(ConfigType.SECRET)
 
-                self.__log.info(f'Enabled successfully!')
+            for secret in secrets:
+                secret_engine = secrets[secret]['engine']
+
+                if self.__config_bundle.is_bundle_config_enabled(ConfigType.SECRET, secret):
+                    self.__log.info(f'Enabling {secret_engine} on path /{secret}.')
+
+                    client.sys.enable_secrets_engine(secret_engine, path=secret)
+                elif f'{secret}/' in backends:
+                    self.__log.info(f'Disabling {secret_engine} on path /{secret}.')
+
+                    client.sys.disable_secrets_engine(secret)
 
     @synchronized
     def apply_policies(self):
@@ -250,10 +256,19 @@ class VaultClient(object):
         client = self.__api
 
         if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
-            policies = self.__vault_config.get_all_policies()
+            policy_backends = client.sys.list_policies()
+
+            policies = self.__config_bundle.get_whole_bundle_config(ConfigType.POLICY)
 
             for policy in policies:
-                client.sys.create_or_update_policy(policy, policies[policy])
+                if self.__config_bundle.is_bundle_config_enabled(ConfigType.POLICY, policy):
+                    self.__log.info(f'Enabling policy {policy}.')
+
+                    client.sys.create_or_update_policy(policy, policies[policy]['config'])
+                elif f'{policy}/' in policy_backends:
+                    self.__log.info(f'Disabling policy {policy}.')
+
+                    client.sys.delete_policy(policy)
 
     @synchronized
     def enable_auth_backends(self):
@@ -267,12 +282,12 @@ class VaultClient(object):
 
             auth_backends = client.sys.list_auth_methods()
 
-            auth_list = self.__vault_config.get_all_auth()
+            auth_list = self.__config_bundle.get_whole_bundle_config(ConfigType.AUTH)
 
             for auth_path in auth_list:
                 auth_type = auth_list[auth_path]['type']
 
-                if self.__vault_config.is_auth_enabled(auth_path):
+                if self.__config_bundle.is_bundle_config_enabled(ConfigType.AUTH, auth_path):
                     self.__log.info(f'Enabling {auth_type} on path /{auth_path}.')
 
                     client.sys.enable_auth_method(method_type=auth_type,
@@ -293,13 +308,13 @@ class VaultClient(object):
         if client.sys.is_initialized() and not client.sys.is_sealed() and client.is_authenticated():
             auth_backends = client.sys.list_auth_methods()
 
-            roles = self.__vault_config.get_all_roles()
+            roles = self.__config_bundle.get_whole_bundle_config(ConfigType.ROLE)
 
             for role_name in roles:
                 role = roles[role_name]
 
                 if f'{role["auth_path"]}/' in auth_backends and role['type'] in self.__role_actions \
-                        and self.__vault_config.is_role_enabled(role_name):
+                        and self.__config_bundle.is_bundle_config_enabled(ConfigType.ROLE, role_name):
                     self.__role_actions[role['type']](role_name, role)
                 elif f'{role["auth_path"]}/' in auth_backends:
                     self.__api.delete(f'auth/{role["auth_path"]}/config')

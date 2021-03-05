@@ -1,61 +1,75 @@
 import glob
 import logging
 import os
+from enum import Enum
 
 import hcl
+
+
+class NoValue(Enum):
+    def __repr__(self):
+        return '<%s.%s>' % (self.__class__.__name__, self.name)
+
+
+class AutoNumber(NoValue):
+    def __new__(cls, config_type: str, path: str):
+        value = len(cls.__members__) + 1
+        obj = object.__new__(cls)
+        obj._value_ = value
+        obj.config_type = config_type
+        obj.path = path
+        return obj
+
+
+class ConfigType(AutoNumber):
+    AUTH = ('auth', '/hcl/auth')
+    POLICY = ('policy', '/hcl/policy')
+    ROLE = ('role', '/hcl/role')
+    SECRET = ('secret', '/hcl/secret')
+
+
+class HCLConfig(object):
+    def __init__(self, config_type: ConfigType):
+        self.__log = logging.getLogger(HCLConfig.__name__)
+
+        self.__config = {}
+
+        self.__load_configs(f'{os.environ["HOME"]}{config_type.path}', config_type.config_type,
+                            lambda conf_name, config: self.__config.update({conf_name: config}))
+
+    def __load_configs(self, path: str, config_type: str, func):
+        for filename in glob.glob(os.path.join(path, '*.hcl')):
+            with open(filename, 'r') as f:
+                conf = hcl.load(f)
+                for name in conf[config_type]:
+                    func(name, conf[config_type][name])
+
+    def is_entry_enabled(self, name: str):
+        return name in self.__config and self.__config[name]['enabled']
+
+    def get_config(self, name: str):
+        return self.__config[name]
+
+    def get_all(self):
+        return self.__config
 
 
 class HCLConfigBundle(object):
     def __init__(self, full_verbose: bool = False):
         self.__log = logging.getLogger(HCLConfigBundle.__name__)
-        self.__log.setLevel(logging.INFO if full_verbose else logging.ERROR)
+        self.__log.setLevel(logging.DEBUG if full_verbose else logging.INFO)
 
-        self.__auth = {}
-        self.__policies = {}
-        self.__roles = {}
+        self.__bundle = {}
 
-        self.__load_configs(f'{os.environ["HOME"]}/hcl/auth', 'auth',
-                            lambda auth_name, config: self.__auth.update({auth_name: config}))
-        self.__load_configs(f'{os.environ["HOME"]}/hcl/policy', 'policy',
-                            lambda policy_name, config: self.__policies.update({policy_name: config}))
-        self.__load_configs(f'{os.environ["HOME"]}/hcl/role', 'role',
-                            lambda role_name, config: self.__roles.update({role_name: config}))
+        for config in ConfigType:
+            self.__bundle.update({config.config_type: HCLConfig(config)})
 
-    def __load_configs(self, path: str, config_type: str, func):
-        for filename in glob.glob(os.path.join(path, '*.hcl')):
-            head, config_name = os.path.split(os.path.splitext(filename)[0])
+    def is_bundle_config_enabled(self, config_type: ConfigType, name: str):
+        return config_type.config_type in self.__bundle and self.__bundle[config_type.config_type].is_entry_enabled(
+            name)
 
-            with open(filename, 'r') as f:
-                conf = hcl.load(f)
-                if config_type == 'policy':
-                    func(config_name, conf)
-                else:
-                    for name in conf[config_type]:
-                        func(name, conf[config_type][name])
+    def get_bundle_config(self, config_type: ConfigType, name: str):
+        return self.__bundle[config_type.config_type].get_config(name)
 
-    def is_auth_enabled(self, name: str):
-        return name in self.__auth and self.__auth[name]['enabled']
-
-    def is_policy_enabled(self, name: str):
-        return name in self.__policies and self.__policies[name]['enabled']
-
-    def is_role_enabled(self, name: str):
-        return name in self.__roles and self.__roles[name]['enabled']
-
-    def get_auth(self, name: str):
-        return self.__auth[name]
-
-    def get_policy(self, name: str):
-        return self.__policies[name]
-
-    def get_role(self, name: str):
-        return self.__roles[name]
-
-    def get_all_auth(self):
-        return self.__auth
-
-    def get_all_policies(self):
-        return self.__policies
-
-    def get_all_roles(self):
-        return self.__roles
+    def get_whole_bundle_config(self, config_type: ConfigType):
+        return self.__bundle[config_type.config_type].get_all()
