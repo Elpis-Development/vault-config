@@ -86,10 +86,10 @@ class HealthProbe(object):
 
 class VaultClient(object):
     def __init__(self):
+        self.__vault_properties = VaultProperties()
+
         self.__log = logging.getLogger(VaultClient.__name__)
         self.__log.setLevel(logging.DEBUG if self.__vault_properties.vault_client_log_full_verbose else logging.INFO)
-
-        self.__vault_properties = VaultProperties()
 
         if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
             raise ValidationException("Vault keys cannot be split for more than 13 parts")
