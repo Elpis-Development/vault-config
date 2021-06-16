@@ -1,1 +1,1 @@
-# Vault Config App
+# Vault Config App [![BCH compliance](https://bettercodehub.com/edge/badge/Elpis-Development/vault-config?branch=main)](https://bettercodehub.com/) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/ee00ad76456649d4ba861ddd41b25e7c)](https://www.codacy.com/gh/Elpis-Development/vault-config/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Elpis-Development/vault-config&amp;utm_campaign=Badge_Grade) 
