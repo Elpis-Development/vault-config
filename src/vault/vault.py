@@ -49,35 +49,35 @@ class HealthProbe(object):
         failures = 0
         successes = 0
 
-        self.__log.info(f'Health probe started...')
+        self.__log.info('Health probe started...')
 
         time.sleep(self.__initial_delay_seconds)
 
         while not failures == self.__failure_threshold and not successes == self.__success_threshold:
-            self.__log.info(f'Trying to perform health probe...')
+            self.__log.info('Trying to perform health probe...')
 
             try:
                 response = request()
 
                 if response.status_code == 200:
                     successes += 1
-                    self.__log.info(f'Health probe succeeded!')
+                    self.__log.info('Health probe succeeded!')
                 else:
                     failures += 1
-                    self.__log.info(f'Health probe failed.')
+                    self.__log.info('Health probe failed.')
             except Exception as e:
                 failures += 1
-                self.__log.info(f'Health probe failed.')
+                self.__log.info('Health probe failed.')
                 self.__log.error(e)
 
             if not successes == self.__success_threshold:
-                self.__log.info(f'Retrying...')
+                self.__log.info('Retrying...')
                 time.sleep(self.__period_seconds)
 
         if failures == self.__failure_threshold:
             self.__closed = True
 
-            self.__log.error(f'Health probe failed for current request. Please, double-check if source is alive.')
+            self.__log.error('Health probe failed for current request. Please, double-check if source is alive.')
 
             raise HealthProbeFailedException
 
@@ -138,7 +138,7 @@ class VaultClient(object):
                          bound_service_account_namespaces=os.environ['VAULT_K8S_NAMESPACE'],
                          policies=self.__vault_properties.vault_kube_internal_policies)
 
-        self.__log.info(f'Internal Kubernetes auth at /kubernetes was enabled.')
+        self.__log.info('Internal Kubernetes auth at /kubernetes was enabled.')
 
     def __config_github(self, role_name: str, role: dict):
         self.__log.info(f'Configuring GitHub role {role_name}...')
@@ -324,7 +324,7 @@ class VaultClient(object):
         client = self.__api
 
         if not client.sys.is_initialized():
-            self.__log.info(f'Vault is not initialized. Initializing...')
+            self.__log.info('Vault is not initialized. Initializing...')
 
             init_result = client.sys.initialize(
                 self.__vault_properties.vault_key_shares,
@@ -335,15 +335,15 @@ class VaultClient(object):
             self.__root_token = init_result['root_token']
 
             if client.sys.is_initialized() and client.sys.is_sealed():
-                self.__log.info(f'Vault was initialized! Performing unseal...')
+                self.__log.info('Vault was initialized! Performing unseal...')
 
                 for key in unseal_keys:
                     self.__api.sys.submit_unseal_key(key)
                     self.__log.info(f"Vault unseal key: {key}")
 
-                self.__log.info(f'Vault was unsealed. Happy using!')
+                self.__log.info('Vault was unsealed. Happy using!')
 
         else:
-            self.__log.info(f'Vault was already initialized.')
+            self.__log.info('Vault was already initialized.')
 
         return client.sys.is_initialized() and not client.sys.is_sealed()
