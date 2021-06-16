@@ -34,10 +34,11 @@ class HCLConfig(object):
 
         self.__config = {}
 
-        self.__load_configs(f'{os.environ["HOME"]}{config_type.path}', config_type.config_type,
-                            lambda conf_name, config: self.__config.update({conf_name: config}))
+        HCLConfig.__load_configs(f'{os.environ["HOME"]}{config_type.path}', config_type.config_type,
+                                 lambda conf_name, config: self.__config.update({conf_name: config}))
 
-    def __load_configs(self, path: str, config_type: str, func):
+    @classmethod
+    def __load_configs(cls, path: str, config_type: str, func):
         for filename in glob.glob(os.path.join(path, '*.hcl')):
             with open(filename, 'r') as f:
                 conf = hcl.load(f)

@@ -1,13 +1,12 @@
-# TODO: Logically group
 class HealthProbeFailedException(Exception):
     def __init__(self):
-        self.__message = f'Health probe failed.'
+        self.__message = 'Health probe failed.'
         super().__init__(self.__message)
 
 
 class VaultNotReadyException(Exception):
     def __init__(self):
-        self.__message = f'Vault not ready. Unable to invoke Vault API methods.'
+        self.__message = 'Vault not ready. Unable to invoke Vault API methods.'
         super().__init__(self.__message)
 
 
@@ -19,5 +18,5 @@ class ValidationException(Exception):
 
 class VaultClientNotAuthenticatedException(Exception):
     def __init__(self):
-        self.__message = f'Vault client is not authorized to work with Vault.'
+        self.__message = 'Vault client is not authorized to work with Vault.'
         super().__init__(self.__message)
