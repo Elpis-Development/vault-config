@@ -1,4 +1,3 @@
-# TODO: Logically group
 class HealthProbeFailedException(Exception):
     def __init__(self):
         self.__message = 'Health probe failed.'

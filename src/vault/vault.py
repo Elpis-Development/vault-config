@@ -118,7 +118,6 @@ class VaultClient(object):
         sa_name = self.__kube_client.get_service_account_name_for_pod(f'{os.environ["VAULT_K8S_NAMESPACE"]}-vault-0',
                                                                       os.environ['VAULT_K8S_NAMESPACE'])
 
-        # TODO: Rewrite some logs with sensitive data with debug?
         self.__log.info(f'Enabling internal Kubernetes auth on /kubernetes with role: \
                         {self.__vault_properties.vault_kube_internal_role_name} for account: \
                         {sa_name} with policies: {self.__vault_properties.vault_kube_internal_policies}')
@@ -199,7 +198,6 @@ class VaultClient(object):
 
         return client.sys.is_sealed()
 
-    # TODO: Rename?
     @synchronized
     def is_running(self):
         if not self.auth():
@@ -214,7 +212,6 @@ class VaultClient(object):
     def auth(self):
         if self.__root_token:
             self.__api.token = self.__root_token
-        # TODO: Move to Constants?
         elif "kubernetes/" in self.__api.sys.list_auth_methods():
             f = open('/var/run/secrets/kubernetes.io/serviceaccount/token')
             jwt = f.read()
@@ -249,7 +246,6 @@ class VaultClient(object):
 
     @synchronized
     def apply_policies(self):
-        # TODO: Repeats a lot: replace with lambda or common method?
         if not self.auth():
             raise VaultClientNotAuthenticatedException()
 

@@ -10,11 +10,6 @@ from waitress import serve
 
 from vault import VaultClient
 
-# TODO: Get rid of these lines :) Add them to the DOCS instead
-# os.environ['VAULT_K8S_NAMESPACE'] = "elpis-tools"
-# os.environ['HOME'] = "C:/Personal/vault-config"
-# os.environ['EXTERNAL_PORT'] = "32200"
-
 log_formatter = logging.Formatter(fmt='%(asctime)s - %(name)s - %(message)s',
                                   datefmt='%d-%b-%y %H:%M:%S')
 root_logger = logging.getLogger()
@@ -40,7 +35,6 @@ def index():
     return render_template('index.html')
 
 
-# TODO: Check if reusable, may be it would be better to rewrite client as Closeable
 def main():
     vault.init_vault()
 
