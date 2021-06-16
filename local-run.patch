@@ -1,0 +1,19 @@
+Index: src/run.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/run.py b/src/run.py
+--- a/src/run.py	(revision bb3f70bab6b5c931e96cc3b8a90c2cc06c500dd2)
++++ b/src/run.py	(date 1623855104594)
+@@ -10,6 +10,10 @@
+ 
+ from vault import VaultClient
+ 
++# os.environ['VAULT_K8S_NAMESPACE'] = "elpis-tools"
++# os.environ['HOME'] = "C:/Personal/vault-config"
++# os.environ['EXTERNAL_PORT'] = "32200"
++
+ log_formatter = logging.Formatter(fmt='%(asctime)s - %(name)s - %(message)s',
+                                   datefmt='%d-%b-%y %H:%M:%S')
+ root_logger = logging.getLogger()
