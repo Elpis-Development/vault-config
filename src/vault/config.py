@@ -56,9 +56,9 @@ class HCLConfig(object):
 
 
 class HCLConfigBundle(object):
-    def __init__(self, full_verbose: bool = False):
+    def __init__(self, log_level: str = 'INFO'):
         self.__log = logging.getLogger(HCLConfigBundle.__name__)
-        self.__log.setLevel(logging.DEBUG if full_verbose else logging.INFO)
+        self.__log.setLevel(log_level)
 
         self.__bundle = {}
 
