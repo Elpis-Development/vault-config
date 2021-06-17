@@ -61,9 +61,9 @@ class VaultProperties(AppProperties):
         return int(self.read(VaultProperties.__name__, 'vault.ping.timeoutSeconds'))
 
     @property
-    def vault_ping_log_full_verbose(self) -> bool:
-        return bool(self.read(VaultProperties.__name__, 'vault.ping.log.fullVerbose'))
+    def vault_ping_log_level(self) -> str:
+        return self.read(VaultProperties.__name__, 'vault.ping.log.level')
 
     @property
-    def vault_client_log_full_verbose(self) -> bool:
-        return bool(self.read(VaultProperties.__name__, 'vault.client.log.fullVerbose'))
+    def vault_client_log_level(self) -> str:
+        return self.read(VaultProperties.__name__, 'vault.client.log.level')

@@ -11,7 +11,7 @@ diff --git a/src/run.py b/src/run.py
  from vault import VaultClient
  
 +# os.environ['VAULT_K8S_NAMESPACE'] = "elpis-tools"
-+# os.environ['HOME'] = "C:/Personal/vault-config"
++# os.environ['HOME'] = "C:/Personal/vault-init"
 +# os.environ['EXTERNAL_PORT'] = "32200"
 +
  log_formatter = logging.Formatter(fmt='%(asctime)s - %(name)s - %(message)s',

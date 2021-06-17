@@ -26,11 +26,11 @@ def synchronized(wrapped):
 
 
 class HealthProbe(object):
-    def __init__(self, full_verbose: bool = False, failure_threshold: int = 2, initial_delay_seconds: int = 5,
+    def __init__(self, log_level: str = 'INFO', failure_threshold: int = 2, initial_delay_seconds: int = 5,
                  period_seconds: int = 5, success_threshold: int = 1, timeout_seconds: int = 3):
 
         self.__log = logging.getLogger(HealthProbe.__name__)
-        self.__log.setLevel(logging.INFO if full_verbose else logging.ERROR)
+        self.__log.setLevel(log_level)
 
         self.__failure_threshold = failure_threshold
         self.__initial_delay_seconds = initial_delay_seconds
@@ -40,7 +40,7 @@ class HealthProbe(object):
         self.__closed = False
 
     def is_closed(self) -> bool:
-        return self.__closed is True
+        return self.__closed
 
     def run(self, request) -> bool:
         if self.__closed:
@@ -89,15 +89,15 @@ class VaultClient(object):
         self.__vault_properties = VaultProperties()
 
         self.__log = logging.getLogger(VaultClient.__name__)
-        self.__log.setLevel(logging.DEBUG if self.__vault_properties.vault_client_log_full_verbose else logging.INFO)
+        self.__log.setLevel(self.__vault_properties.vault_client_log_level)
 
         if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
             raise ValidationException("Vault keys cannot be split for more than 13 parts")
 
-        self.__config_bundle = HCLConfigBundle(self.__vault_properties.vault_client_log_full_verbose)
+        self.__config_bundle = HCLConfigBundle(self.__vault_properties.vault_client_log_level)
 
         self.__probe = lambda initial_delay_seconds=5: HealthProbe(
-            full_verbose=self.__vault_properties.vault_ping_log_full_verbose,
+            log_level=self.__vault_properties.vault_client_log_level,
             initial_delay_seconds=initial_delay_seconds)
 
         if not self.vault_ready():
@@ -331,14 +331,16 @@ class VaultClient(object):
             self.__root_token = init_result['root_token']
 
             if client.sys.is_initialized() and client.sys.is_sealed():
-                self.__log.info('Vault was initialized! Performing unseal...')
+                log_message = f"Vault was initialized! Performing unseal... Please, share this info only with " \
+                              f"trusted sources!'\n"
 
                 for key in unseal_keys:
                     self.__api.sys.submit_unseal_key(key)
-                    self.__log.info(f"Vault unseal key: {key}")
 
+                    log_message += f"=================================\n {key} \n=================================\n"
+
+                self.__log.info(log_message)
                 self.__log.info('Vault was unsealed. Happy using!')
-
         else:
             self.__log.info('Vault was already initialized.')
 
