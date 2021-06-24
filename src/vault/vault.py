@@ -118,9 +118,9 @@ class VaultClient(object):
         sa_name = self.__kube_client.get_service_account_name_for_pod(f'{os.environ["VAULT_K8S_NAMESPACE"]}-vault-0',
                                                                       os.environ['VAULT_K8S_NAMESPACE'])
 
-        self.__log.info(f'Enabling internal Kubernetes auth on /kubernetes with role: \
-                        {self.__vault_properties.vault_kube_internal_role_name} for account: \
-                        {sa_name} with policies: {self.__vault_properties.vault_kube_internal_policies}')
+        self.__log.info(f'Enabling internal Kubernetes auth on /kubernetes with role: ' +
+                        f'{self.__vault_properties.vault_kube_internal_role_name} for account: {sa_name} ' +
+                        f'with policies: {self.__vault_properties.vault_kube_internal_policies}')
 
         self.__api.sys.enable_auth_method(method_type='kubernetes', path='kubernetes')
 
@@ -149,10 +149,10 @@ class VaultClient(object):
         self.__api.write(f'auth/{role["auth_path"]}/map/teams/{role["team_name"]}', None,
                          value=policies)
 
-        self.__log.info(f'GitHub role {role_name} is set up!')
+        self.__log.info(f'GitHub role {role_name} is set up.')
 
     def __config_kube(self, role_name: str, role: dict):
-        self.__log.info(f'Configuring k8s role {role_name}...')
+        self.__log.info(f'Configuring Kubernetes role {role_name}...')
 
         namespace = role['bound_service_account_namespace']
         sa_name = role['bound_service_account_name']
@@ -169,6 +169,8 @@ class VaultClient(object):
                          bound_service_account_namespaces=namespace,
                          policies=role['policies'])
 
+        self.__log.info(f'Kubernetes role {role_name} is set up.')
+
     # Misc
     @synchronized
     def void_root_token(self):
@@ -176,6 +178,7 @@ class VaultClient(object):
 
     @synchronized
     def close_client(self):
+        self.void_root_token()
         self.__api.adapter.close()
 
     @synchronized
@@ -332,15 +335,15 @@ class VaultClient(object):
 
             if client.sys.is_initialized() and client.sys.is_sealed():
                 log_message = f"Vault was initialized! Performing unseal... Please, share this info only with " \
-                              f"trusted sources!'\n"
+                              f"trusted sources!'"
 
                 for key in unseal_keys:
                     self.__api.sys.submit_unseal_key(key)
 
-                    log_message += f"=================================\n {key} \n=================================\n"
+                    log_message += f"\n{'=' * 86}\n Vault unseal key: {key} \n{'=' * 86}"
 
                 self.__log.info(log_message)
-                self.__log.info('Vault was unsealed. Happy using!')
+                self.__log.info('Vault was unsealed.')
         else:
             self.__log.info('Vault was already initialized.')
 
