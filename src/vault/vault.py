@@ -340,7 +340,7 @@ class VaultClient(object):
                 for key in unseal_keys:
                     self.__api.sys.submit_unseal_key(key)
 
-                    log_message += f"\n{'=' * 68}\n {key} \n{'=' * 68}"
+                    log_message += f"\n{'=' * 86}\n Vault unseal key: {key} \n{'=' * 86}"
 
                 self.__log.info(log_message)
                 self.__log.info('Vault was unsealed.')
