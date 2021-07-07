@@ -10,13 +10,15 @@ RUN mkdir /init && mkdir /init/logs && chmod 777 /init && chmod 777 /init/logs \
         aiohttp==3.7.4 \
         waitress==2.0.0 \
         pyhcl==0.4.4 \
-        kubernetes==17.17.0
+        kubernetes==17.17.0 \
+        git+https://github.com/Pithikos/python-websocket-server \
+        websocket-server
 
 COPY src /init/src
 COPY hcl /init/hcl
 
 COPY application.properties /init
 
-EXPOSE 5000
+EXPOSE 5000 4000
 
 CMD ["python",  "/init/src/run.py"]

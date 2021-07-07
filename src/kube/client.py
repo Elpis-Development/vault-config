@@ -6,9 +6,9 @@ from kubernetes import client, config
 
 
 class KubernetesClient(object):
-    def __init__(self, full_verbose: bool = True):
+    def __init__(self,  log_level: str = 'INFO'):
         self.__log = logging.getLogger(KubernetesClient.__name__)
-        self.__log.setLevel(logging.INFO if full_verbose else logging.ERROR)
+        self.__log.setLevel(log_level)
 
         if 'KUBERNETES_PORT_443_TCP_ADDR' in os.environ:
             config.load_incluster_config()

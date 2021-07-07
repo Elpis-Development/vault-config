@@ -3,6 +3,7 @@ import logging
 import os
 import threading
 import time
+from typing import Final
 
 import hvac
 import requests
@@ -85,14 +86,18 @@ class HealthProbe(object):
 
 
 class VaultClient(object):
+    MAX_SHARES: Final = 10
+    KEY_SEPARATOR: Final = '=' * 86
+
     def __init__(self):
         self.__vault_properties = VaultProperties()
 
         self.__log = logging.getLogger(VaultClient.__name__)
         self.__log.setLevel(self.__vault_properties.vault_client_log_level)
 
-        if self.__vault_properties.vault_key_shares > 13 or self.__vault_properties.vault_key_threshold > 13:
-            raise ValidationException("Vault keys cannot be split for more than 13 parts")
+        if self.__vault_properties.vault_key_shares > VaultClient.MAX_SHARES \
+                or self.__vault_properties.vault_key_threshold > VaultClient.MAX_SHARES:
+            raise ValidationException(f'Vault keys cannot be split for more than {VaultClient.MAX_SHARES} parts')
 
         self.__config_bundle = HCLConfigBundle(self.__vault_properties.vault_client_log_level)
 
@@ -104,7 +109,7 @@ class VaultClient(object):
             raise VaultNotReadyException
 
         self.__api = hvac.Client(url=self.__vault_properties.vault_address)
-        self.__kube_client = KubernetesClient()
+        self.__kube_client = KubernetesClient(self.__vault_properties.vault_client_log_level)
 
         self.__root_token = None
 
@@ -173,8 +178,10 @@ class VaultClient(object):
 
     # Misc
     @synchronized
-    def void_root_token(self):
+    def void_root_token(self) -> bool:
         self.__root_token = None
+
+        return True
 
     @synchronized
     def close_client(self):
@@ -226,7 +233,7 @@ class VaultClient(object):
     @synchronized
     def enable_secrets(self):
         if not self.auth():
-            raise VaultClientNotAuthenticatedException()
+            return False
 
         client = self.__api
 
@@ -247,10 +254,14 @@ class VaultClient(object):
 
                     client.sys.disable_secrets_engine(secret)
 
+            return True
+        else:
+            return False
+
     @synchronized
     def apply_policies(self):
         if not self.auth():
-            raise VaultClientNotAuthenticatedException()
+            return False
 
         client = self.__api
 
@@ -269,10 +280,14 @@ class VaultClient(object):
 
                     client.sys.delete_policy(policy)
 
+            return True
+        else:
+            return False
+
     @synchronized
     def enable_auth_backends(self):
         if not self.auth():
-            raise VaultClientNotAuthenticatedException()
+            return False
 
         client = self.__api
 
@@ -297,10 +312,14 @@ class VaultClient(object):
 
                     client.sys.disable_auth_method(auth_path)
 
+            return True
+        else:
+            return False
+
     @synchronized
     def apply_auth_roles(self):
         if not self.auth():
-            raise VaultClientNotAuthenticatedException()
+            return False
 
         client = self.__api
 
@@ -317,6 +336,10 @@ class VaultClient(object):
                     self.__role_actions[role['type']](role_name, role)
                 elif f'{role["auth_path"]}/' in auth_backends:
                     self.__api.delete(f'auth/{role["auth_path"]}/config')
+
+            return True
+        else:
+            return False
 
     @synchronized
     def init_vault(self) -> bool:
@@ -340,7 +363,7 @@ class VaultClient(object):
                 for key in unseal_keys:
                     self.__api.sys.submit_unseal_key(key)
 
-                    log_message += f"\n{'=' * 86}\n Vault unseal key: {key} \n{'=' * 86}"
+                    log_message += f"\n{VaultClient.KEY_SEPARATOR}\n Vault unseal key: {key} \n{VaultClient.KEY_SEPARATOR}"
 
                 self.__log.info(log_message)
                 self.__log.info('Vault was unsealed.')
