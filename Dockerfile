@@ -12,7 +12,7 @@ RUN mkdir /init && mkdir /init/logs && chmod 777 /init && chmod 777 /init/logs \
         pyhcl==0.4.4 \
         kubernetes==17.17.0 \
         git+https://github.com/Pithikos/python-websocket-server \
-        websocket-server
+        websocket-server==0.4
 
 COPY src /init/src
 COPY hcl /init/hcl

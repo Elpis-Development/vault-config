@@ -9,49 +9,53 @@
 }
 
 .steps div::after {
-   content: "";
-   position: absolute;
-   z-index: 2;
-   right: 0;
-   top: 0;
-   transform: translateX(50%);
-   border-radius: 50%;
-   background: #FFF;
-   border: 1px #ccc solid;
-   width: 3.5em;
-   height: 3.5em;
+  content: "";
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  top: 0;
+  transform: translateX(50%);
+  border-radius: 50%;
+  background: #fff;
+  border: 1px #ccc solid;
+  width: 3.5em;
+  height: 3.5em;
 }
 
 .steps .is-finished div::after {
-   background: #7BCD69;
+  background-color: #7bcd69;
+  animation: success 2s;
 }
 
 .steps .is-finished span {
-   color: #728157;
+  color: #728157;
 }
 
 .steps .is-active div::after {
-    animation: pulse 2s infinite;
+  animation: pulse 2s infinite;
 }
 
 .steps .is-failed div::after {
-   background: #FF5157;
+  background-color: #ff5157;
+  animation: failure 2s;
 }
 
 .steps .is-failed span {
-   text-decoration: none;
+  text-decoration: none;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 400;
 }
 
 .steps .is-failed strong {
-   text-decoration: underline;
+  text-decoration: underline;
 }
 
 .steps .is-none div::after {
-   background: #CCC;
+  background: #ccc;
 }
 
 .steps .is-none span {
-   color: #CCC;
+  color: #ccc;
 }
 
 .steps span {
@@ -63,12 +67,12 @@
 }
 
 .steps span::before {
-   content: "";
-   position: absolute;
-   z-index: 1;
-   left: 0;
-   height: 100%;
-   border-left: 1px #ccc solid;
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  height: 100%;
+  border-left: 1px #ccc solid;
 }
 
 .steps li:last-child span::before {
@@ -76,16 +80,23 @@
 }
 
 .steps strong {
-   display: block;
-   font-weight: 500;
-   font-family: 'Oswald', sans-serif;
-   font-size: 1.3em;
+  display: block;
+  font-weight: 500;
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.3em;
 }
 
-.steps { margin: 1em; width: auto; }
+.steps {
+  margin: 1em;
+  width: auto;
+}
+
 .steps,
 .steps *::before,
-.steps *::after { box-sizing: border-box; font-family: arial; }
+.steps *::after {
+  box-sizing: border-box;
+  font-family: 'Oswald', sans-serif;
+}
 
 @keyframes pulse {
   0% {
@@ -99,10 +110,28 @@
   }
 }
 
+@keyframes success {
+  from {
+    background-color: #fff;
+  }
+  to {
+    background-color: #7bcd69;
+  }
+}
+
+@keyframes failure {
+  from {
+    background-color: #fff;
+  }
+  to {
+    background-color: #ff5157;
+  }
+}
+
 #app {
-    position: absolute;
-    left: 50%;
-    transform: translate(-50%, 0%);
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 0%);
 }
 
 @keyframes nextStep {

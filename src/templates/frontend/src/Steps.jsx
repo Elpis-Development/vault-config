@@ -3,5 +3,5 @@ const Steps = (props) => {
          <ul className="steps">
             {props.children}
          </ul>
-    )
-}  
+    );
+};

@@ -4,16 +4,28 @@ Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
 diff --git a/src/run.py b/src/run.py
---- a/src/run.py	(revision bb3f70bab6b5c931e96cc3b8a90c2cc06c500dd2)
-+++ b/src/run.py	(date 1623855104594)
-@@ -10,6 +10,10 @@
- 
+--- a/src/run.py	(revision 84599b7ce47be42a577e0560fa892627d392dc4a)
++++ b/src/run.py	(date 1625755123576)
+@@ -14,6 +14,10 @@
+ from util import Steps, Chain
  from vault import VaultClient
  
 +# os.environ['VAULT_K8S_NAMESPACE'] = "elpis-tools"
 +# os.environ['HOME'] = "C:/Personal/vault-init"
 +# os.environ['EXTERNAL_PORT'] = "32200"
 +
- log_formatter = logging.Formatter(fmt='%(asctime)s - %(name)s - %(message)s',
-                                   datefmt='%d-%b-%y %H:%M:%S')
- root_logger = logging.getLogger()
+ INIT_STEP = 'init'
+ UP_STEP = 'up'
+ AUTH_STEP = 'auth'
+@@ -36,6 +40,11 @@
+ file_handler.setLevel(logging.DEBUG)
+ root_logger.addHandler(file_handler)
+ 
++# console_handler = logging.StreamHandler()
++# console_handler.setFormatter(log_formatter)
++# console_handler.setLevel(logging.INFO)
++# root_logger.addHandler(console_handler)
++
+ app = Flask(__name__, static_folder=f'{os.environ["HOME"]}/src/templates/frontend')
+ socket: WebsocketServer = WebsocketServer(4000, host='127.0.0.1', loglevel=logging.ERROR)
+ 

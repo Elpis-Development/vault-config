@@ -1,1 +1,1 @@
-from .util import VaultProperties, Steps, Chain
+from .util import Steps, Chain

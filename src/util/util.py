@@ -1,85 +1,19 @@
 import json
-import os
-from configparser import ConfigParser
-
-from exceptions import ChainCatchModifiedException
-
-
-class AppProperties(object):
-    def __init__(self):
-        self.__config = ConfigParser()
-        self.__config.read(f'{os.environ["HOME"]}/application.properties')
-
-    def read(self, section_name: str, property_key: str):
-        return self.__config[section_name][property_key]
-
-
-class VaultProperties(AppProperties):
-    @property
-    def vault_address(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.address')
-
-    @property
-    def vault_ping_address(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.ping.address')
-
-    @property
-    def vault_kube_internal_policies(self) -> list:
-        return self.read(VaultProperties.__name__, 'vault.kubernetes.internal.policies').split(',')
-
-    @property
-    def vault_kube_internal_role_name(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.kubernetes.internal.role')
-
-    @property
-    def vault_kube_internal_ttl(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.kubernetes.internal.wrapTTL')
-
-    @property
-    def vault_key_threshold(self) -> int:
-        return int(self.read(VaultProperties.__name__, 'vault.key.threshold'))
-
-    @property
-    def vault_key_shares(self) -> int:
-        return int(self.read(VaultProperties.__name__, 'vault.key.shares'))
-
-    @property
-    def vault_ping_initial_delay_seconds(self) -> int:
-        return int(self.read(VaultProperties.__name__, 'vault.ping.initialDelaySeconds'))
-
-    @property
-    def vault_ping_failure_threshold(self) -> int:
-        return int(self.read(VaultProperties.__name__, 'vault.ping.failureThreshold'))
-
-    @property
-    def vault_ping_period_seconds(self) -> int:
-        return int(self.read(VaultProperties.__name__, 'vault.ping.periodSeconds'))
-
-    @property
-    def vault_ping_success_threshold(self) -> int:
-        return int(self.read(VaultProperties.__name__, 'vault.ping.successThreshold'))
-
-    @property
-    def vault_ping_timeout_seconds(self) -> int:
-        return int(self.read(VaultProperties.__name__, 'vault.ping.timeoutSeconds'))
-
-    @property
-    def vault_ping_log_level(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.ping.log.level')
-
-    @property
-    def vault_client_log_level(self) -> str:
-        return self.read(VaultProperties.__name__, 'vault.client.log.level')
+import logging
 
 
 class Steps(object):
     def __init__(self):
         self.__registry: dict = {}
 
+        self.__last_step = None
+
     def step(self, step: str):
         self.__registry[step] = {
             'state': 'none'
         }
+
+        self.__last_step = step
 
         return self
 
@@ -88,12 +22,24 @@ class Steps(object):
             'state': state
         }
 
+        self.__last_step = step
+
         return self
 
-    def reason(self, step: str, state: str, reason: str):
+    def trace(self, step: str, state: str, trace: str):
         self.__registry[step] = {
             'state': state,
-            'reason': reason
+            'trace': trace
+        }
+
+        self.__last_step = step
+
+        return self
+
+    def trace_last(self, state: str, trace: str):
+        self.__registry[self.__last_step] = {
+            'state': state,
+            'trace': trace
         }
 
         return self
@@ -122,6 +68,9 @@ class Resolve(object):
 
 class Chain(object):
     def __init__(self):
+        self.__log = logging.getLogger(Chain.__name__)
+        self.__log.setLevel('INFO')
+
         self.__call_stack = []
 
         self.__rejected = False
@@ -145,6 +94,8 @@ class Chain(object):
                 try:
                     result = method(self.__previous_result)
                     if isinstance(result, Reject):
+                        self.__log.error(str(result.exception))
+
                         self.__rejected = True
                         self.__error_handler(result.exception)
                     elif isinstance(result, Resolve):
@@ -152,6 +103,8 @@ class Chain(object):
                     else:
                         self.__previous_result = result
                 except Exception as e:
+                    self.__log.error(str(e))
+
                     self.__rejected = True
                     self.__error_handler(e)
             else:

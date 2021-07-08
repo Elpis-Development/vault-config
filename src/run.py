@@ -14,10 +14,6 @@ from notification import NotificationEngine
 from util import Steps, Chain
 from vault import VaultClient
 
-# os.environ['VAULT_K8S_NAMESPACE'] = "elpis-tools"
-# os.environ['HOME'] = "C:/Personal/vault-init"
-# os.environ['EXTERNAL_PORT'] = "32200"
-
 INIT_STEP = 'init'
 UP_STEP = 'up'
 AUTH_STEP = 'auth'
@@ -31,27 +27,21 @@ FINISHED_STATE = 'finished'
 FAILED_STATE = 'failed'
 NONE_STATE = 'none'
 
-log_formatter = logging.Formatter(fmt='%(asctime)s - %(name)s - %(message)s',
-                                  datefmt='%d-%b-%y %H:%M:%S')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 root_logger = logging.getLogger()
 
 file_handler = RotatingFileHandler(filename="{0}/logs/app.log".format(os.environ["HOME"]),
                                    mode='w', maxBytes=10000, backupCount=1)
-file_handler.setFormatter(log_formatter)
+file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.DEBUG)
 root_logger.addHandler(file_handler)
 
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(log_formatter)
-console_handler.setLevel(logging.INFO)
-root_logger.addHandler(console_handler)
-
 app = Flask(__name__, static_folder=f'{os.environ["HOME"]}/src/templates/frontend')
-socket: WebsocketServer = WebsocketServer(4000, host='127.0.0.1', loglevel=logging.INFO)
+socket: WebsocketServer = WebsocketServer(4000, host='127.0.0.1', loglevel=logging.ERROR)
 
 vault = VaultClient()
 
-notifications_engine: NotificationEngine = NotificationEngine(lambda msg: socket.send_message_to_all(msg))
+notifications_engine: NotificationEngine = NotificationEngine(socket.send_message_to_all)
 
 steps: Steps = Steps().step(INIT_STEP) \
     .step(UP_STEP) \
@@ -68,13 +58,18 @@ def index():
 
 
 def __wait_for_vault():
-    for x in range(3):
+    for _ in range(3):
         if not vault.is_running():
             sleep(30)
         else:
             return True
 
     return False
+
+
+def __read_last_trace():
+    with open('{0}/logs/app.log'.format(os.environ["HOME"]), 'r') as f:
+        return f.readlines()[-1]
 
 
 def main():
@@ -113,7 +108,7 @@ def main():
         .then(lambda _: Chain.resolve(steps.state(CLEAN_STEP, FINISHED_STATE)) if vault.void_root_token() else Chain.reject(
             StepFailedException(CLEAN_STEP, "Error"))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .catch(lambda e: notifications_engine.notify(steps.reason(e.step, FAILED_STATE, e.message).to_str())) \
+        .catch(lambda e: notifications_engine.notify(steps.trace_last(FAILED_STATE, __read_last_trace()).to_str())) \
         .done()
 
 

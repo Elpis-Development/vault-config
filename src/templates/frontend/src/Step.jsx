@@ -1,23 +1,22 @@
 const StepType = {
-    active: 'is-active',
-    finished: 'is-finished',
-    failed: 'is-failed',
-    none: 'is-none'
-}
+    active: "is-active",
+    finished: "is-finished",
+    failed: "is-failed",
+    none: "is-none"
+};
 
 const getClassName = (state) => {
     switch (state) {
-        case 'active':
+        case "active":
             return StepType.active;
-        case 'finished':
+        case "finished":
             return StepType.finished;
-        case 'failed':
+        case "failed":
             return StepType.failed;
-        case 'none':
         default:
             return StepType.none;
    }
-}
+};
 
 const Step = (props) => {
     let className = props.type ? getClassName(props.type) : "";
@@ -27,5 +26,5 @@ const Step = (props) => {
             <div></div>
             <span><strong>{props.title}</strong> {props.description}</span>
          </li>
-    )
-}  
+    );
+};
