@@ -6,6 +6,8 @@ from enum import Enum
 
 import hcl
 
+from constants import EnvConstants
+
 
 class NoValue(Enum):
     def __repr__(self):
@@ -35,7 +37,7 @@ class HCLConfig(object):
 
         self.__config = {}
 
-        HCLConfig.__load_configs(f'{os.environ["HOME"]}{config_type.path}', config_type.config_type,
+        HCLConfig.__load_configs(f'{os.environ[EnvConstants.HOME]}{config_type.path}', config_type.config_type,
                                  lambda conf_name, config: self.__config.update({conf_name: config}))
 
     @classmethod
@@ -80,7 +82,7 @@ class HCLConfigBundle(object):
 class AppProperties(object):
     def __init__(self):
         self.__config = ConfigParser()
-        self.__config.read(f'{os.environ["HOME"]}/application.properties')
+        self.__config.read(f'{os.environ[EnvConstants.HOME]}/application.properties')
 
     def read(self, section_name: str, property_key: str):
         return self.__config[section_name][property_key]

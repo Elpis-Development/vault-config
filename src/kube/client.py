@@ -4,13 +4,15 @@ import os
 
 from kubernetes import client, config
 
+from constants import EnvConstants
+
 
 class KubernetesClient(object):
     def __init__(self,  log_level: str = 'INFO'):
         self.__log = logging.getLogger(KubernetesClient.__name__)
         self.__log.setLevel(log_level)
 
-        if 'KUBERNETES_PORT_443_TCP_ADDR' in os.environ:
+        if EnvConstants.K8S_ADDRESS in os.environ:
             config.load_incluster_config()
         else:
             config.load_kube_config()
