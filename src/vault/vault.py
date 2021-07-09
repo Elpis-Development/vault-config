@@ -8,16 +8,11 @@ from typing import Final
 import hvac
 import requests
 
+from constants import HealthProbeConstants
 from exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException, \
     VaultClientNotAuthenticatedException
 from kube.client import KubernetesClient
 from .config import HCLConfigBundle, ConfigType, VaultProperties
-
-FAILURE_THRESHOLD = 2
-INITIAL_DELAY = 5
-PERIOD = 5
-SUCCESS_THRESHOLD = 1
-TIMEOUT = 3
 
 
 def synchronized(wrapped):
@@ -32,9 +27,11 @@ def synchronized(wrapped):
 
 
 class HealthProbe(object):
-    def __init__(self, log_level: str = 'INFO', failure_threshold: int = FAILURE_THRESHOLD,
-                 initial_delay_seconds: int = INITIAL_DELAY, period_seconds: int = PERIOD,
-                 success_threshold: int = SUCCESS_THRESHOLD, timeout_seconds: int = TIMEOUT):
+    def __init__(self, log_level: str = 'INFO', failure_threshold: int = HealthProbeConstants.FAILURE_THRESHOLD,
+                 initial_delay_seconds: int = HealthProbeConstants.INITIAL_DELAY,
+                 period_seconds: int = HealthProbeConstants.PERIOD,
+                 success_threshold: int = HealthProbeConstants.SUCCESS_THRESHOLD,
+                 timeout_seconds: int = HealthProbeConstants.TIMEOUT):
 
         self.__log = logging.getLogger(HealthProbe.__name__)
         self.__log.setLevel(log_level)

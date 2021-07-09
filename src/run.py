@@ -9,50 +9,35 @@ from flask import Flask, render_template
 from waitress import serve
 from websocket_server import WebsocketServer
 
+from constants import AppConstants, InitConstants, EnvConstants
 from exceptions import StepFailedException
 from notification import NotificationEngine
 from util import Steps, Chain
 from vault import VaultClient
 
-INIT_STEP = 'init'
-UP_STEP = 'up'
-AUTH_STEP = 'auth'
-SECRET_STEP = 'secret'
-POLICY_STEP = 'policy'
-ROLE_STEP = 'role'
-CLEAN_STEP = 'clean'
-
-ACTIVE_STATE = 'active'
-FINISHED_STATE = 'finished'
-FAILED_STATE = 'failed'
-NONE_STATE = 'none'
-
-DEFAULT_WEB_PORT = 5000
-DEFAULT_WS_PORT = 4000
-
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 root_logger = logging.getLogger()
 
-file_handler = RotatingFileHandler(filename="{0}/logs/app.log".format(os.environ["HOME"]),
+file_handler = RotatingFileHandler(filename="{0}/logs/app.log".format(os.environ[EnvConstants.HOME]),
                                    mode='w', maxBytes=10000, backupCount=1)
 file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.DEBUG)
 root_logger.addHandler(file_handler)
 
-app = Flask(__name__, static_folder=f'{os.environ["HOME"]}/src/templates/frontend')
-socket: WebsocketServer = WebsocketServer(DEFAULT_WS_PORT, host='127.0.0.1', loglevel=logging.ERROR)
+app = Flask(__name__, static_folder=f'{os.environ[EnvConstants.HOME]}/src/templates/frontend')
+socket: WebsocketServer = WebsocketServer(AppConstants.DEFAULT_WS_PORT, host=AppConstants.HOST, loglevel=logging.ERROR)
 
 vault = VaultClient()
 
 notifications_engine: NotificationEngine = NotificationEngine(socket.send_message_to_all)
 
-steps: Steps = Steps().step(INIT_STEP) \
-    .step(UP_STEP) \
-    .step(AUTH_STEP) \
-    .step(SECRET_STEP) \
-    .step(POLICY_STEP) \
-    .step(ROLE_STEP) \
-    .step(CLEAN_STEP)
+steps: Steps = Steps().step(InitConstants.INIT_STEP) \
+    .step(InitConstants.UP_STEP) \
+    .step(InitConstants.AUTH_STEP) \
+    .step(InitConstants.SECRET_STEP) \
+    .step(InitConstants.POLICY_STEP) \
+    .step(InitConstants.ROLE_STEP) \
+    .step(InitConstants.CLEAN_STEP)
 
 
 @app.route('/')
@@ -71,47 +56,47 @@ def __wait_for_vault():
 
 
 def __read_last_trace():
-    with open('{0}/logs/app.log'.format(os.environ["HOME"]), 'r') as f:
+    with open('{0}/logs/app.log'.format(os.environ[EnvConstants.HOME]), 'r') as f:
         return f.readlines()[-1]
 
 
 def start_vault_init():
-    Chain.fill(steps.state(INIT_STEP, ACTIVE_STATE)) \
+    Chain.fill(steps.state(InitConstants.INIT_STEP, InitConstants.ACTIVE_STATE)) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(INIT_STEP, FINISHED_STATE)) if vault.init_vault() else Chain.reject(
-            StepFailedException(INIT_STEP, "Vault wasn't unsealed or not started"))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.INIT_STEP, InitConstants.FINISHED_STATE)) if vault.init_vault() else Chain.reject(
+            StepFailedException(InitConstants.INIT_STEP, "Vault wasn't unsealed or not started"))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(UP_STEP, ACTIVE_STATE))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.UP_STEP, InitConstants.ACTIVE_STATE))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(UP_STEP, FINISHED_STATE)) if __wait_for_vault() else Chain.reject(
-            StepFailedException(UP_STEP, "Vault can't start"))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.UP_STEP, InitConstants.FINISHED_STATE)) if __wait_for_vault() else Chain.reject(
+            StepFailedException(InitConstants.UP_STEP, "Vault can't start"))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(AUTH_STEP, ACTIVE_STATE))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.AUTH_STEP, InitConstants.ACTIVE_STATE))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(AUTH_STEP, FINISHED_STATE)) if vault.enable_auth_backends() else Chain.reject(
-            StepFailedException(AUTH_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.AUTH_STEP, InitConstants.FINISHED_STATE)) if vault.enable_auth_backends() else Chain.reject(
+            StepFailedException(InitConstants.AUTH_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(SECRET_STEP, ACTIVE_STATE))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.SECRET_STEP, InitConstants.ACTIVE_STATE))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(SECRET_STEP, FINISHED_STATE)) if vault.enable_secrets() else Chain.reject(
-            StepFailedException(SECRET_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.SECRET_STEP, InitConstants.FINISHED_STATE)) if vault.enable_secrets() else Chain.reject(
+            StepFailedException(InitConstants.SECRET_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(POLICY_STEP, ACTIVE_STATE))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.POLICY_STEP, InitConstants.ACTIVE_STATE))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(POLICY_STEP, FINISHED_STATE)) if vault.apply_policies() else Chain.reject(
-            StepFailedException(POLICY_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.POLICY_STEP, InitConstants.FINISHED_STATE)) if vault.apply_policies() else Chain.reject(
+            StepFailedException(InitConstants.POLICY_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(ROLE_STEP, ACTIVE_STATE))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.ROLE_STEP, InitConstants.ACTIVE_STATE))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(ROLE_STEP, FINISHED_STATE)) if vault.apply_auth_roles() else Chain.reject(
-            StepFailedException(ROLE_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.ROLE_STEP, InitConstants.FINISHED_STATE)) if vault.apply_auth_roles() else Chain.reject(
+            StepFailedException(InitConstants.ROLE_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(CLEAN_STEP, ACTIVE_STATE))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.CLEAN_STEP, InitConstants.ACTIVE_STATE))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .then(lambda _: Chain.resolve(steps.state(CLEAN_STEP, FINISHED_STATE)) if vault.void_root_token() else Chain.reject(
-            StepFailedException(CLEAN_STEP, "Resources were busy - not able to perform cleaning"))) \
+        .then(lambda _: Chain.resolve(steps.state(InitConstants.CLEAN_STEP, InitConstants.FINISHED_STATE)) if vault.void_root_token() else Chain.reject(
+            StepFailedException(InitConstants.CLEAN_STEP, "Resources were busy - not able to perform cleaning"))) \
         .then(lambda state: notifications_engine.notify(state.to_str())) \
-        .catch(lambda e: notifications_engine.notify(steps.trace_last(FAILED_STATE, __read_last_trace()).to_str())) \
+        .catch(lambda e: notifications_engine.notify(steps.trace_last(InitConstants.FAILED_STATE, __read_last_trace()).to_str())) \
         .done()
 
 
@@ -132,4 +117,4 @@ if __name__ == "__main__":
     websocket_task.start()
     vault_task.start()
 
-    serve(app, port=DEFAULT_WEB_PORT)
+    serve(app, port=AppConstants.DEFAULT_WEB_PORT)
