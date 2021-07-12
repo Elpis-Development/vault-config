@@ -4,10 +4,6 @@ from logging.handlers import RotatingFileHandler
 
 from constants import EnvConstants
 
-# os.environ['VAULT_K8S_NAMESPACE'] = "elpis-tools"
-# os.environ['HOME'] = "C:/Personal/vault-init"
-# os.environ['EXTERNAL_PORT'] = "32200"
-
 
 class Logger(object):
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')

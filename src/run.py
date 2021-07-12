@@ -89,50 +89,6 @@ def start_vault_init():
         .catch(lambda e: notifications_engine.notify(steps.trace_last(InitConstants.FAILED_STATE, __read_last_trace()).to_str())) \
         .done()
 
-# def sleep_and_true():
-#     sleep(5)
-#     return True
-#
-#
-# def start_vault_init():
-#     Chain.fill(steps.state(InitConstants.INIT_STEP, InitConstants.ACTIVE_STATE)) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.INIT_STEP, InitConstants.FINISHED_STATE)) if sleep_and_true() else Chain.reject(
-#             StepFailedException(InitConstants.INIT_STEP, "Vault wasn't unsealed or not started"))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.UP_STEP, InitConstants.ACTIVE_STATE))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.UP_STEP, InitConstants.FINISHED_STATE)) if sleep_and_true() else Chain.reject(
-#             StepFailedException(InitConstants.UP_STEP, "Vault can't start"))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.AUTH_STEP, InitConstants.ACTIVE_STATE))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.AUTH_STEP, InitConstants.FINISHED_STATE)) if sleep_and_true() else Chain.reject(
-#             StepFailedException(InitConstants.AUTH_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.SECRET_STEP, InitConstants.ACTIVE_STATE))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.SECRET_STEP, InitConstants.FINISHED_STATE)) if sleep_and_true() else Chain.reject(
-#             StepFailedException(InitConstants.SECRET_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.POLICY_STEP, InitConstants.ACTIVE_STATE))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.POLICY_STEP, InitConstants.FINISHED_STATE)) if sleep_and_true() else Chain.reject(
-#             StepFailedException(InitConstants.POLICY_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.ROLE_STEP, InitConstants.ACTIVE_STATE))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.ROLE_STEP, InitConstants.FINISHED_STATE)) if sleep_and_true() else Chain.reject(
-#             StepFailedException(InitConstants.ROLE_STEP, "Vault wasn't unsealed or not started or internal authentication failed"))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.CLEAN_STEP, InitConstants.ACTIVE_STATE))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .then(lambda _: Chain.resolve(steps.state(InitConstants.CLEAN_STEP, InitConstants.FINISHED_STATE)) if sleep_and_true() else Chain.reject(
-#             StepFailedException(InitConstants.CLEAN_STEP, "Resources were busy - not able to perform cleaning"))) \
-#         .then(lambda state: notifications_engine.notify(state.to_str())) \
-#         .catch(lambda e: notifications_engine.notify(steps.trace_last(InitConstants.FAILED_STATE, __read_last_trace()).to_str())) \
-#         .done()
-
 
 def start_socket():
     socket.set_fn_new_client(lambda client, server: server.send_message(client, notifications_engine.last))
