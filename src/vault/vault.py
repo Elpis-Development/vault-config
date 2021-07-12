@@ -1,5 +1,4 @@
 import functools
-import logging
 import os
 import threading
 import time
@@ -12,6 +11,7 @@ from constants import HealthProbeConstants
 from exceptions import HealthProbeFailedException, VaultNotReadyException, ValidationException, \
     VaultClientNotAuthenticatedException
 from kube.client import KubernetesClient
+from util import Logger
 from .config import HCLConfigBundle, ConfigType, VaultProperties
 
 
@@ -33,7 +33,7 @@ class HealthProbe(object):
                  success_threshold: int = HealthProbeConstants.SUCCESS_THRESHOLD,
                  timeout_seconds: int = HealthProbeConstants.TIMEOUT):
 
-        self.__log = logging.getLogger(HealthProbe.__name__)
+        self.__log = Logger.getLogger(HealthProbe.__name__)
         self.__log.setLevel(log_level)
 
         self.__failure_threshold = failure_threshold
@@ -95,7 +95,7 @@ class VaultClient(object):
     def __init__(self):
         self.__vault_properties = VaultProperties()
 
-        self.__log = logging.getLogger(VaultClient.__name__)
+        self.__log = Logger.getLogger(VaultClient.__name__)
         self.__log.setLevel(self.__vault_properties.vault_client_log_level)
 
         if self.__vault_properties.vault_key_shares > VaultClient.MAX_SHARES \

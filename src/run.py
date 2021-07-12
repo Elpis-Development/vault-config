@@ -2,7 +2,6 @@ import atexit
 import logging
 import os
 import threading
-from logging.handlers import RotatingFileHandler
 from time import sleep
 
 from flask import Flask, render_template
@@ -14,15 +13,6 @@ from exceptions import StepFailedException
 from notification import NotificationEngine
 from util import Steps, Chain
 from vault import VaultClient
-
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-root_logger = logging.getLogger()
-
-file_handler = RotatingFileHandler(filename="{0}/logs/app.log".format(os.environ[EnvConstants.HOME]),
-                                   mode='w', maxBytes=10000, backupCount=1)
-file_handler.setFormatter(formatter)
-file_handler.setLevel(logging.DEBUG)
-root_logger.addHandler(file_handler)
 
 app = Flask(__name__, static_folder=f'{os.environ[EnvConstants.HOME]}/src/templates/frontend')
 socket: WebsocketServer = WebsocketServer(AppConstants.DEFAULT_WS_PORT, host=AppConstants.HOST, loglevel=logging.ERROR)
