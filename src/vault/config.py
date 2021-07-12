@@ -1,8 +1,8 @@
 import glob
-import logging
 import os
 from configparser import ConfigParser
 from enum import Enum
+from util import Logger
 
 import hcl
 
@@ -33,7 +33,7 @@ class ConfigType(AutoNumber):
 
 class HCLConfig(object):
     def __init__(self, config_type: ConfigType):
-        self.__log = logging.getLogger(HCLConfig.__name__)
+        self.__log = Logger.getLogger(HCLConfig.__name__)
 
         self.__config = {}
 
@@ -60,7 +60,7 @@ class HCLConfig(object):
 
 class HCLConfigBundle(object):
     def __init__(self, log_level: str = 'INFO'):
-        self.__log = logging.getLogger(HCLConfigBundle.__name__)
+        self.__log = Logger.getLogger(HCLConfigBundle.__name__)
         self.__log.setLevel(log_level)
 
         self.__bundle = {}

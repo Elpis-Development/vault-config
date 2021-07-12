@@ -1,5 +1,6 @@
 import json
-import logging
+
+from .logger import Logger
 
 
 class Steps(object):
@@ -68,7 +69,7 @@ class Resolve(object):
 
 class Chain(object):
     def __init__(self):
-        self.__log = logging.getLogger(Chain.__name__)
+        self.__log = Logger.getLogger(Chain.__name__)
         self.__log.setLevel('INFO')
 
         self.__call_stack = []

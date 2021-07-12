@@ -1,15 +1,15 @@
 import base64
-import logging
 import os
 
 from kubernetes import client, config
 
 from constants import EnvConstants
+from util import Logger
 
 
 class KubernetesClient(object):
     def __init__(self,  log_level: str = 'INFO'):
-        self.__log = logging.getLogger(KubernetesClient.__name__)
+        self.__log = Logger.getLogger(KubernetesClient.__name__)
         self.__log.setLevel(log_level)
 
         if EnvConstants.K8S_ADDRESS in os.environ:
